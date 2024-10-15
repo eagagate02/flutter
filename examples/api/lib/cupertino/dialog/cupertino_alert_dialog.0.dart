@@ -2,34 +2,29 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// Flutter code sample for CupertinoAlertDialog
-
 import 'package:flutter/cupertino.dart';
 
-void main() => runApp(const MyApp());
+/// Flutter code sample for [CupertinoAlertDialog].
 
-class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+void main() => runApp(const AlertDialogApp());
 
-  static const String _title = 'CupertinoAlertDialog Sample';
+class AlertDialogApp extends StatelessWidget {
+  const AlertDialogApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return const CupertinoApp(
-      title: _title,
-      home: ActionSheetSample(title: _title),
+      theme: CupertinoThemeData(brightness: Brightness.light),
+      home: AlertDialogExample(),
     );
   }
 }
 
-class ActionSheetSample extends StatelessWidget {
-  const ActionSheetSample({Key? key, required this.title}) : super(key: key);
+class AlertDialogExample extends StatelessWidget {
+  const AlertDialogExample({super.key});
 
-  final String title;
-
-  // This shows a CupertinoModalPopup which hosts a CupertinoAlertDialog.
   void _showAlertDialog(BuildContext context) {
-    showCupertinoModalPopup<void>(
+    showCupertinoDialog<void>(
       context: context,
       builder: (BuildContext context) => CupertinoAlertDialog(
         title: const Text('Alert'),
@@ -53,7 +48,7 @@ class ActionSheetSample extends StatelessWidget {
               Navigator.pop(context);
             },
             child: const Text('Yes'),
-          )
+          ),
         ],
       ),
     );
@@ -62,8 +57,8 @@ class ActionSheetSample extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
-      navigationBar: CupertinoNavigationBar(
-        middle: Text(title),
+      navigationBar: const CupertinoNavigationBar(
+        middle: Text('CupertinoAlertDialog Sample'),
       ),
       child: Center(
         child: CupertinoButton(

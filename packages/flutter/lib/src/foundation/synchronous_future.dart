@@ -14,6 +14,8 @@ import 'dart:async';
 /// rare occasions you want the ability to switch to an asynchronous model. **In
 /// general use of this class should be avoided as it is very difficult to debug
 /// such bimodal behavior.**
+///
+/// A [SynchronousFuture] will never complete with an error.
 class SynchronousFuture<T> implements Future<T> {
   /// Creates a synchronous future.
   ///
@@ -38,10 +40,11 @@ class SynchronousFuture<T> implements Future<T> {
 
   @override
   Future<R> then<R>(FutureOr<R> Function(T value) onValue, { Function? onError }) {
-    final dynamic result = onValue(_value);
-    if (result is Future<R>)
+    final FutureOr<R> result = onValue(_value);
+    if (result is Future<R>) {
       return result;
-    return SynchronousFuture<R>(result as R);
+    }
+    return SynchronousFuture<R>(result);
   }
 
   @override
@@ -53,8 +56,9 @@ class SynchronousFuture<T> implements Future<T> {
   Future<T> whenComplete(FutureOr<dynamic> Function() action) {
     try {
       final FutureOr<dynamic> result = action();
-      if (result is Future)
+      if (result is Future) {
         return result.then<T>((dynamic value) => _value);
+      }
       return this;
     } catch (e, stack) {
       return Future<T>.error(e, stack);

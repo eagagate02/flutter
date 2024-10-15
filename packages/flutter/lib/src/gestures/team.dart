@@ -2,9 +2,17 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+/// @docImport 'package:flutter/material.dart';
+///
+/// @docImport 'monodrag.dart';
+/// @docImport 'recognizer.dart';
+/// @docImport 'tap.dart';
+library;
 
 import 'arena.dart';
 import 'binding.dart';
+
+export 'arena.dart' show GestureArenaEntry, GestureArenaMember;
 
 class _CombiningGestureArenaEntry implements GestureArenaEntry {
   _CombiningGestureArenaEntry(this._combiner, this._member);
@@ -36,8 +44,9 @@ class _CombiningGestureArenaMember extends GestureArenaMember {
     _close();
     _winner ??= _owner.captain ?? _members[0];
     for (final GestureArenaMember member in _members) {
-      if (member != _winner)
+      if (member != _winner) {
         member.rejectGesture(pointer);
+      }
     }
     _winner!.acceptGesture(pointer);
   }
@@ -46,8 +55,9 @@ class _CombiningGestureArenaMember extends GestureArenaMember {
   void rejectGesture(int pointer) {
     assert(_pointer == pointer);
     _close();
-    for (final GestureArenaMember member in _members)
+    for (final GestureArenaMember member in _members) {
       member.rejectGesture(pointer);
+    }
   }
 
   void _close() {
@@ -66,17 +76,19 @@ class _CombiningGestureArenaMember extends GestureArenaMember {
   }
 
   void _resolve(GestureArenaMember member, GestureDisposition disposition) {
-    if (_resolved)
+    if (_resolved) {
       return;
-    if (disposition == GestureDisposition.rejected) {
-      _members.remove(member);
-      member.rejectGesture(_pointer);
-      if (_members.isEmpty)
+    }
+    switch (disposition) {
+      case GestureDisposition.accepted:
+        _winner ??= _owner.captain ?? member;
         _entry!.resolve(disposition);
-    } else {
-      assert(disposition == GestureDisposition.accepted);
-      _winner ??= _owner.captain ?? member;
-      _entry!.resolve(disposition);
+      case GestureDisposition.rejected:
+        _members.remove(member);
+        member.rejectGesture(_pointer);
+        if (_members.isEmpty) {
+          _entry!.resolve(disposition);
+        }
     }
   }
 }

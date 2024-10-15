@@ -58,14 +58,11 @@ import 'framework.dart';
 abstract class InheritedNotifier<T extends Listenable> extends InheritedWidget {
   /// Create an inherited widget that updates its dependents when [notifier]
   /// sends notifications.
-  ///
-  /// The [child] argument must not be null.
   const InheritedNotifier({
-    Key? key,
+    super.key,
     this.notifier,
-    required Widget child,
-  }) : assert(child != null),
-       super(key: key, child: child);
+    required super.child,
+  });
 
   /// The [Listenable] object to which to listen.
   ///
@@ -110,8 +107,9 @@ class _InheritedNotifierElement<T extends Listenable> extends InheritedElement {
 
   @override
   Widget build() {
-    if (_dirty)
+    if (_dirty) {
       notifyClients(widget as InheritedNotifier<T>);
+    }
     return super.build();
   }
 

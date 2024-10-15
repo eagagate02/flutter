@@ -13,23 +13,26 @@ class TestSingleChildLayoutDelegate extends SingleChildLayoutDelegate {
 
   @override
   Size getSize(BoxConstraints constraints) {
-    if (!RenderObject.debugCheckingIntrinsics)
+    if (!RenderObject.debugCheckingIntrinsics) {
       constraintsFromGetSize = constraints;
+    }
     return const Size(200.0, 300.0);
   }
 
   @override
   BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
-    assert(!RenderObject.debugCheckingIntrinsics);
-    constraintsFromGetConstraintsForChild = constraints;
+    if (!RenderObject.debugCheckingIntrinsics) {
+      constraintsFromGetConstraintsForChild = constraints;
+    }
     return const BoxConstraints(minWidth: 100.0, maxWidth: 150.0, minHeight: 200.0, maxHeight: 400.0);
   }
 
   @override
   Offset getPositionForChild(Size size, Size childSize) {
-    assert(!RenderObject.debugCheckingIntrinsics);
-    sizeFromGetPositionForChild = size;
-    childSizeFromGetPositionForChild = childSize;
+    if (!RenderObject.debugCheckingIntrinsics) {
+      sizeFromGetPositionForChild = size;
+      childSizeFromGetPositionForChild = childSize;
+    }
     return Offset.zero;
   }
 
@@ -151,6 +154,7 @@ void main() {
 
   testWidgets('Can use listener for relayout', (WidgetTester tester) async {
     final ValueNotifier<Size> size = ValueNotifier<Size>(const Size(100.0, 200.0));
+    addTearDown(size.dispose);
 
     await tester.pumpWidget(buildFrame(NotifierLayoutDelegate(size)));
 

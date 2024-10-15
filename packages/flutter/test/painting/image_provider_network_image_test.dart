@@ -5,8 +5,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
-import 'dart:typed_data';
-import 'dart:ui' show Codec, FrameInfo;
+import 'dart:ui' show Codec, ImmutableBuffer;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
@@ -14,23 +13,27 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../image_data.dart';
 import '../rendering/rendering_tester.dart';
+import 'no_op_codec.dart';
 
 void main() {
   TestRenderingFlutterBinding.ensureInitialized();
+  HttpOverrides.global = _FakeHttpOverrides();
 
-  Future<Codec>  _basicDecoder(Uint8List bytes, {int? cacheWidth, int? cacheHeight, bool? allowUpscaling}) {
-    return PaintingBinding.instance.instantiateImageCodec(bytes, cacheWidth: cacheWidth, cacheHeight: cacheHeight, allowUpscaling: allowUpscaling ?? false);
+  Future<Codec>  basicDecoder(ImmutableBuffer buffer, {int? cacheWidth, int? cacheHeight, bool? allowUpscaling}) {
+    return PaintingBinding.instance.instantiateImageCodecFromBuffer(buffer, cacheWidth: cacheWidth, cacheHeight: cacheHeight, allowUpscaling: allowUpscaling ?? false);
   }
 
   late _FakeHttpClient httpClient;
 
   setUp(() {
+    _FakeHttpOverrides.createHttpClientCalls = 0;
     httpClient = _FakeHttpClient();
     debugNetworkImageHttpClientProvider = () => httpClient;
   });
 
   tearDown(() {
     debugNetworkImageHttpClientProvider = null;
+    expect(_FakeHttpOverrides.createHttpClientCalls, 0);
     PaintingBinding.instance.imageCache.clear();
     PaintingBinding.instance.imageCache.clearLiveImages();
   });
@@ -71,13 +74,49 @@ void main() {
     expect(httpClient.request.response.drained, true);
   }, skip: isBrowser); // [intended] Browser implementation does not use HTTP client but an <img> tag.
 
+  test('Expect thrown exception with statusCode - evicts from cache and drains, when using ResizeImage', () async {
+    const int errorStatusCode = HttpStatus.notFound;
+    const String requestUrl = 'foo-url';
+
+    httpClient.request.response.statusCode = errorStatusCode;
+
+    final Completer<dynamic> caughtError = Completer<dynamic>();
+
+    final ImageProvider imageProvider = ResizeImage(NetworkImage(nonconst(requestUrl)), width: 5, height: 5);
+    expect(imageCache.pendingImageCount, 0);
+    expect(imageCache.statusForKey(imageProvider).untracked, true);
+
+    final ImageStream result = imageProvider.resolve(ImageConfiguration.empty);
+
+    expect(imageCache.pendingImageCount, 1);
+
+    result.addListener(ImageStreamListener((ImageInfo info, bool syncCall) {},
+        onError: (dynamic error, StackTrace? stackTrace) {
+      caughtError.complete(error);
+    }));
+
+    final Object? err = await caughtError.future;
+    await Future<void>.delayed(Duration.zero);
+
+    expect(imageCache.pendingImageCount, 0);
+    expect(imageCache.statusForKey(imageProvider).untracked, true);
+
+    expect(
+      err,
+      isA<NetworkImageLoadException>()
+          .having((NetworkImageLoadException e) => e.statusCode, 'statusCode', errorStatusCode)
+          .having((NetworkImageLoadException e) => e.uri, 'uri', Uri.base.resolve(requestUrl)),
+    );
+    expect(httpClient.request.response.drained, true);
+  }, skip: isBrowser); // [intended] Browser implementation does not use HTTP client but an <img> tag.
+
   test('Uses the HttpClient provided by debugNetworkImageHttpClientProvider if set', () async {
     httpClient.thrownError = 'client1';
     final List<dynamic> capturedErrors = <dynamic>[];
 
     Future<void> loadNetworkImage() async {
       final NetworkImage networkImage = NetworkImage(nonconst('foo'));
-      final ImageStreamCompleter completer = networkImage.load(networkImage, _basicDecoder);
+      final ImageStreamCompleter completer = networkImage.loadBuffer(networkImage, basicDecoder);
       completer.addListener(ImageStreamListener(
         (ImageInfo image, bool synchronousCall) { },
         onError: (dynamic error, StackTrace? stackTrace) {
@@ -178,7 +217,7 @@ void main() {
       },
     ));
 
-    final dynamic err = await caughtError.future;
+    final Object? err = await caughtError.future;
 
     expect(err, isA<SocketException>());
 
@@ -188,10 +227,6 @@ void main() {
 
     debugNetworkImageHttpClientProvider = null;
   }, skip: isBrowser); // [intended] Browser does not resolve images this way.
-
-  Future<Codec> _decoder(Uint8List bytes, {int? cacheWidth, int? cacheHeight, bool? allowUpscaling}) async {
-    return FakeCodec();
-  }
 
   test('Network image sets tag', () async {
     const String url = 'http://test.png';
@@ -207,10 +242,26 @@ void main() {
 
     const NetworkImage provider = NetworkImage(url);
 
-    final MultiFrameImageStreamCompleter completer = provider.load(provider, _decoder) as MultiFrameImageStreamCompleter;
+    final MultiFrameImageStreamCompleter completer = provider.loadBuffer(provider, noOpDecoderBufferCallback) as MultiFrameImageStreamCompleter;
 
     expect(completer.debugLabel, url);
   });
+}
+
+/// Override `HttpClient()` to throw an error.
+///
+/// This ensures that these tests never cause a call to the [HttpClient]
+/// constructor.
+///
+/// Regression test for <https://github.com/flutter/flutter/issues/129532>.
+class _FakeHttpOverrides extends HttpOverrides {
+  static int createHttpClientCalls = 0;
+
+  @override
+  HttpClient createHttpClient(SecurityContext? context) {
+    createHttpClientCalls++;
+    throw Exception('This test tried to create an HttpClient.');
+  }
 }
 
 class _FakeHttpClient extends Fake implements HttpClient {
@@ -225,6 +276,7 @@ class _FakeHttpClient extends Fake implements HttpClient {
     return request;
   }
 }
+
 class _FakeHttpClientRequest extends Fake implements HttpClientRequest {
   final _FakeHttpClientResponse response = _FakeHttpClientResponse();
 
@@ -263,20 +315,4 @@ class _FakeHttpClientResponse extends Fake implements HttpClientResponse {
     drained = true;
     return futureValue ?? futureValue as E; // Mirrors the implementation in Stream.
   }
-}
-
-class FakeCodec implements Codec {
-  @override
-  void dispose() {}
-
-  @override
-  int get frameCount => throw UnimplementedError();
-
-  @override
-  Future<FrameInfo> getNextFrame() {
-    throw UnimplementedError();
-  }
-
-  @override
-  int get repetitionCount => throw UnimplementedError();
 }

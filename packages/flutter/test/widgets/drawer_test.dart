@@ -82,7 +82,6 @@ void main() {
     final TestGesture gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
     // Start out of hoverTarget
     await gesture.addPointer(location: const Offset(100, 100));
-    addTearDown(gesture.removePointer);
 
     await tester.pumpWidget(
       MaterialApp(
@@ -349,7 +348,7 @@ void main() {
     scaffoldKey.currentState!.openDrawer();
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(semantics, isNot(includesNodeWith(actions: <SemanticsAction>[SemanticsAction.tap])));
+    expect(semantics, isNot(includesNodeWith(actions: <SemanticsAction>[SemanticsAction.tap, SemanticsAction.focus])));
     expect(semantics, isNot(includesNodeWith(label: 'Dismiss')));
 
     semantics.dispose();

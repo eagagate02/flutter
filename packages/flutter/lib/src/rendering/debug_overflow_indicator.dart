@@ -53,10 +53,10 @@ class _OverflowRegionData {
 /// ```dart
 /// class MyRenderObject extends RenderAligningShiftedBox with DebugOverflowIndicatorMixin {
 ///   MyRenderObject({
-///     AlignmentGeometry alignment = Alignment.center,
-///     TextDirection? textDirection,
-///     RenderBox? child,
-///   }) : super.mixin(alignment, textDirection, child);
+///     super.alignment = Alignment.center,
+///     required super.textDirection,
+///     super.child,
+///   });
 ///
 ///   late Rect _containerRect;
 ///   late Rect _childRect;
@@ -85,8 +85,8 @@ class _OverflowRegionData {
 ///
 /// See also:
 ///
-///  * [RenderConstraintsTransformBox], [RenderUnconstrainedBox] and
-///    [RenderFlex], for examples of classes that use this indicator mixin.
+///  * [RenderConstraintsTransformBox] and [RenderFlex] for examples of classes
+///    that use this indicator mixin.
 mixin DebugOverflowIndicatorMixin on RenderObject {
   static const Color _black = Color(0xBF000000);
   static const Color _yellow = Color(0xBFFFFF00);
@@ -109,10 +109,19 @@ mixin DebugOverflowIndicatorMixin on RenderObject {
     );
   static final Paint _labelBackgroundPaint = Paint()..color = const Color(0xFFFFFFFF);
 
-  final List<TextPainter> _indicatorLabel = List<TextPainter>.filled(
+  final List<TextPainter> _indicatorLabel = List<TextPainter>.generate(
     _OverflowSide.values.length,
-    TextPainter(textDirection: TextDirection.ltr), // This label is in English.
+    (int i) => TextPainter(textDirection: TextDirection.ltr), // This label is in English.
+    growable: false,
   );
+
+  @override
+  void dispose() {
+    for (final TextPainter painter in _indicatorLabel) {
+      painter.dispose();
+    }
+    super.dispose();
+  }
 
   // Set to true to trigger a debug message in the console upon
   // the next paint call. Will be reset after each paint.
@@ -120,15 +129,11 @@ mixin DebugOverflowIndicatorMixin on RenderObject {
 
   String _formatPixels(double value) {
     assert(value > 0.0);
-    final String pixels;
-    if (value > 10.0) {
-      pixels = value.toStringAsFixed(0);
-    } else if (value > 1.0) {
-      pixels = value.toStringAsFixed(1);
-    } else {
-      pixels = value.toStringAsPrecision(3);
-    }
-    return pixels;
+    return switch (value) {
+      > 10.0 => value.toStringAsFixed(0),
+      >  1.0 => value.toStringAsFixed(1),
+      _      => value.toStringAsPrecision(3),
+    };
   }
 
   List<_OverflowRegionData> _calculateOverflowRegions(RelativeRect overflow, Rect containerRect) {
@@ -226,10 +231,8 @@ mixin DebugOverflowIndicatorMixin on RenderObject {
     switch (overflows.length) {
       case 1:
         overflowText = overflows.first;
-        break;
       case 2:
         overflowText = '${overflows.first} and ${overflows.last}';
-        break;
       default:
         overflows[overflows.length - 1] = 'and ${overflows[overflows.length - 1]}';
         overflowText = overflows.join(', ');

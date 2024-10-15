@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// @dart = 2.8
-
 import 'package:file/file.dart';
 import 'package:file/memory.dart';
 import 'package:flutter_tools/src/base/io.dart';
@@ -16,8 +14,9 @@ import '../src/common.dart';
 import '../src/context.dart';
 
 void main() {
-  BufferLogger logger;
-  FileSystem fs;
+  late BufferLogger logger;
+  late FileSystem fs;
+
   setUp(() {
     logger = BufferLogger.test();
     fs = MemoryFileSystem.test();
@@ -144,8 +143,8 @@ void main() {
     });
 
     group('new issue template URL', () {
-      StackTrace stackTrace;
-      Error error;
+      late StackTrace stackTrace;
+      late Error error;
       const String command = 'flutter test';
       const String doctorText = ' [✓] Flutter (Channel report';
 
@@ -166,10 +165,10 @@ void main() {
         expect(
             await creator.toolCrashIssueTemplateGitHubURL(command, error, stackTrace, doctorText),
           'https://github.com/flutter/flutter/issues/new?title=%5Btool_crash%5D+ArgumentError%3A+'
-            'Invalid+argument%28s%29%3A+argument+error+message&body=%23%23+Command%0A%60%60%60%0A'
+            'Invalid+argument%28s%29%3A+argument+error+message&body=%23%23+Command%0A%60%60%60sh%0A'
             'flutter+test%0A%60%60%60%0A%0A%23%23+Steps+to+Reproduce%0A1.+...%0A2.+...%0A3.+...%0'
             'A%0A%23%23+Logs%0AArgumentError%3A+Invalid+argument%28s%29%3A+argument+error+message'
-            '%0A%60%60%60%0Atrace%0A%60%60%60%0A%60%60%60%0A+%5B%E2%9C%93%5D+Flutter+%28Channel+r'
+            '%0A%60%60%60console%0Atrace%0A%60%60%60%0A%60%60%60console%0A+%5B%E2%9C%93%5D+Flutter+%28Channel+r'
             'eport%0A%60%60%60%0A%0A%23%23+Flutter+Application+Metadata%0ANo+pubspec+in+working+d'
             'irectory.%0A&labels=tool%2Csevere%3A+crash'
         );
@@ -220,10 +219,10 @@ project_type: app
         ''');
 
         final String actualURL = await creator.toolCrashIssueTemplateGitHubURL(command, error, stackTrace, doctorText);
-        final String actualBody = Uri.parse(actualURL).queryParameters['body'];
+        final String? actualBody = Uri.parse(actualURL).queryParameters['body'];
         const String expectedBody = '''
 ## Command
-```
+```sh
 flutter test
 ```
 
@@ -234,10 +233,10 @@ flutter test
 
 ## Logs
 ArgumentError: Invalid argument(s): argument error message
-```
+```console
 trace
 ```
-```
+```console
  [✓] Flutter (Channel report
 ```
 

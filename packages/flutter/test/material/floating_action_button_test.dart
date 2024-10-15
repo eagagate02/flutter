@@ -5,22 +5,20 @@
 // This file is run as part of a reduced test set in CI on Mac and Windows
 // machines.
 @Tags(<String>['reduced-test-set'])
-
 @TestOn('!chrome')
+library;
+
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import '../rendering/mock_canvas.dart';
+import '../widgets/feedback_tester.dart';
 import '../widgets/semantics_tester.dart';
-import 'feedback_tester.dart';
 
 void main() {
-
-  final ThemeData material3Theme = ThemeData.light().copyWith(useMaterial3: true);
-  final ThemeData material2Theme = ThemeData.light().copyWith(useMaterial3: false);
+  final ThemeData material3Theme = ThemeData(useMaterial3: true);
+  final ThemeData material2Theme = ThemeData(useMaterial3: false);
 
   testWidgets('Floating Action Button control test', (WidgetTester tester) async {
     bool didPressButton = false;
@@ -359,7 +357,6 @@ void main() {
       kind: PointerDeviceKind.mouse,
     );
     await gesture.addPointer();
-    addTearDown(gesture.removePointer);
     await gesture.moveTo(center);
     await tester.pumpAndSettle();
     expect(getFABWidget(fabFinder).elevation, 8);
@@ -369,6 +366,8 @@ void main() {
     await tester.pump(); // Start the splash and highlight animations.
     await tester.pump(const Duration(milliseconds: 800)); // Wait for splash and highlight to be well under way.
     expect(getFABWidget(fabFinder).elevation, 6);
+
+    focusNode.dispose();
   });
 
   testWidgets('FlatActionButton mini size is configurable by ThemeData.materialTapTargetSize', (WidgetTester tester) async {
@@ -632,6 +631,7 @@ void main() {
           ],
           actions: <SemanticsAction>[
             SemanticsAction.tap,
+            SemanticsAction.focus,
           ],
         ),
       ],
@@ -670,7 +670,7 @@ void main() {
     semantics.dispose();
   });
 
-  testWidgets('Tooltip is used as semantics label', (WidgetTester tester) async {
+  testWidgets('Tooltip is used as semantics tooltip', (WidgetTester tester) async {
     final SemanticsTester semantics = SemanticsTester(tester);
 
     await tester.pumpWidget(
@@ -697,9 +697,10 @@ void main() {
                   ],
                   children: <TestSemantics>[
                     TestSemantics(
-                      label: 'Add Photo',
+                      tooltip: 'Add Photo',
                       actions: <SemanticsAction>[
                         SemanticsAction.tap,
+                        SemanticsAction.focus,
                       ],
                       flags: <SemanticsFlag>[
                         SemanticsFlag.hasEnabledState,
@@ -833,7 +834,6 @@ void main() {
 
     final TestGesture gesture = await tester.createGesture(kind: PointerDeviceKind.mouse, pointer: 1);
     await gesture.addPointer(location: tester.getCenter(find.byType(FloatingActionButton)));
-    addTearDown(gesture.removePointer);
 
     await tester.pump();
 
@@ -911,6 +911,8 @@ void main() {
       tester.renderObject(find.byType(FloatingActionButton)),
       paintsExactlyCountTimes(#clipPath, 0),
     );
+
+    focusNode.dispose();
   });
 
   testWidgets('Can find FloatingActionButton semantics', (WidgetTester tester) async {
@@ -922,6 +924,7 @@ void main() {
       tester.getSemantics(find.byType(FloatingActionButton)),
       matchesSemantics(
         hasTapAction: true,
+        hasFocusAction: true,
         hasEnabledState: true,
         isButton: true,
         isEnabled: true,
@@ -951,6 +954,7 @@ void main() {
     const Color splashColor = Color(0xcafefeed);
 
     await tester.pumpWidget(MaterialApp(
+      theme: material2Theme,
       home: FloatingActionButton(
         onPressed: () {},
         splashColor: splashColor,
@@ -1052,6 +1056,7 @@ void main() {
 
     await tester.pumpWidget(
       MaterialApp(
+        theme: material2Theme,
         home: Scaffold(
           floatingActionButton: FloatingActionButton.extended(
             label: const Text('', key: labelKey),
@@ -1074,8 +1079,9 @@ void main() {
   });
 
   group('Material 2', () {
-    // Tests that are only relevant for Material 2. Once ThemeData.useMaterial3
-    // is turned on by default, these tests can be removed.
+    // These tests are only relevant for Material 2. Once Material 2
+    // support is deprecated and the APIs are removed, these tests
+    // can be deleted.
 
     testWidgets('Floating Action Button elevation when highlighted - effect', (WidgetTester tester) async {
       await tester.pumpWidget(
@@ -1196,7 +1202,6 @@ void main() {
         kind: PointerDeviceKind.mouse,
       );
       await gesture.addPointer();
-      addTearDown(gesture.removePointer);
       await gesture.moveTo(center);
       await tester.pumpAndSettle();
       expect(getFABWidget(fabFinder).elevation, 8);
@@ -1206,6 +1211,8 @@ void main() {
       await tester.pump(); // Start the splash and highlight animations.
       await tester.pump(const Duration(milliseconds: 800)); // Wait for splash and highlight to be well under way.
       expect(getFABWidget(fabFinder).elevation, 12);
+
+      focusNode.dispose();
     });
 
     testWidgets('FloatingActionButton.isExtended', (WidgetTester tester) async {

@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class StateMarker extends StatefulWidget {
-  const StateMarker({ Key? key, this.child }) : super(key: key);
+  const StateMarker({ super.key, this.child });
 
   final Widget? child;
 
@@ -19,14 +19,12 @@ class StateMarkerState extends State<StateMarker> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.child != null)
-      return widget.child!;
-    return Container();
+    return widget.child ?? Container();
   }
 }
 
 class DeactivateLogger extends StatefulWidget {
-  const DeactivateLogger({ required Key key, required this.log }) : super(key: key);
+  const DeactivateLogger({ required Key super.key, required this.log });
 
   final List<String> log;
 
@@ -58,11 +56,11 @@ void main() {
       Stack(
         textDirection: TextDirection.ltr,
         children: <Widget>[
-          Container(
+          ColoredBox(
             color: Colors.green,
             child: StateMarker(key: left),
           ),
-          Container(
+          ColoredBox(
             color: Colors.green,
             child: StateMarker(
               key: right,
@@ -87,14 +85,14 @@ void main() {
       Stack(
         textDirection: TextDirection.ltr,
         children: <Widget>[
-          Container(
+          ColoredBox(
             color: Colors.green,
             child: StateMarker(
               key: right,
               child: newGrandchild,
             ),
           ),
-          Container(
+          ColoredBox(
             color: Colors.green,
             child: StateMarker(key: left),
           ),
@@ -114,7 +112,7 @@ void main() {
 
     await tester.pumpWidget(
       Center(
-        child: Container(
+        child: ColoredBox(
           color: Colors.green,
           child: StateMarker(
             key: left,
@@ -182,7 +180,7 @@ void main() {
 
     await tester.pumpWidget(
       Center(
-        child: Container(
+        child: ColoredBox(
           color: Colors.green,
           child: StateMarker(
             key: left,

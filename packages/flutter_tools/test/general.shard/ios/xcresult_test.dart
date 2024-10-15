@@ -4,6 +4,7 @@
 
 import 'package:flutter_tools/src/base/logger.dart';
 import 'package:flutter_tools/src/base/process.dart';
+import 'package:flutter_tools/src/base/version.dart';
 import 'package:flutter_tools/src/ios/xcodeproj.dart';
 import 'package:flutter_tools/src/ios/xcresult.dart';
 import 'package:flutter_tools/src/macos/xcode.dart';
@@ -15,18 +16,21 @@ import 'xcresult_test_data.dart';
 void main() {
   // Creates a FakeCommand for the xcresult get call to build the app
   // in the given configuration.
-  FakeCommand _setUpFakeXCResultGetCommand({
+  FakeCommand setUpFakeXCResultGetCommand({
     required String stdout,
     required String tempResultPath,
     required Xcode xcode,
     int exitCode = 0,
     String stderr = '',
+    bool useLegacyFlag = true,
   }) {
     return FakeCommand(
       command: <String>[
         ...xcode.xcrunCommand(),
         'xcresulttool',
         'get',
+        if (useLegacyFlag)
+          '--legacy',
         '--path',
         tempResultPath,
         '--format',
@@ -35,7 +39,7 @@ void main() {
       stdout: stdout,
       stderr: stderr,
       exitCode: exitCode,
-      onRun: () {},
+      onRun: (_) {},
     );
   }
 
@@ -54,10 +58,12 @@ void main() {
     exitCode: 1,
   );
 
-  XCResultGenerator _setupGenerator({
+  XCResultGenerator setupGenerator({
     required String resultJson,
     int exitCode = 0,
     String stderr = '',
+    Version? xcodeVersion = const Version.withText(16, 0, 0, '16.0'),
+    bool useLegacyFlag = true,
   }) {
     final FakeProcessManager fakeProcessManager =
         FakeProcessManager.list(<FakeCommand>[
@@ -68,17 +74,18 @@ void main() {
       processManager: fakeProcessManager,
       xcodeProjectInterpreter: XcodeProjectInterpreter.test(
         processManager: fakeProcessManager,
-        version: null,
+        version: xcodeVersion,
       ),
     );
     fakeProcessManager.addCommands(
       <FakeCommand>[
-        _setUpFakeXCResultGetCommand(
+        setUpFakeXCResultGetCommand(
           stdout: resultJson,
           tempResultPath: _tempResultPath,
           xcode: xcode,
           exitCode: exitCode,
           stderr: stderr,
+          useLegacyFlag: useLegacyFlag
         ),
       ],
     );
@@ -95,7 +102,7 @@ void main() {
 
   testWithoutContext(
       'correctly parse sample result json when there are issues.', () async {
-    final XCResultGenerator generator = _setupGenerator(resultJson: kSampleResultJsonWithIssues);
+    final XCResultGenerator generator = setupGenerator(resultJson: kSampleResultJsonWithIssues);
     final XCResult result = await generator.generate();
     expect(result.issues.length, 2);
     expect(result.issues.first.type, XCResultIssueType.error);
@@ -112,7 +119,7 @@ void main() {
 
   testWithoutContext(
       'correctly parse sample result json when there are issues but invalid url.', () async {
-    final XCResultGenerator generator = _setupGenerator(resultJson: kSampleResultJsonWithIssuesAndInvalidUrl);
+    final XCResultGenerator generator = setupGenerator(resultJson: kSampleResultJsonWithIssuesAndInvalidUrl);
     final XCResult result = await generator.generate();
     expect(result.issues.length, 2);
     expect(result.issues.first.type, XCResultIssueType.error);
@@ -130,7 +137,7 @@ void main() {
 
   testWithoutContext(
       'correctly parse sample result json and discard all warnings', () async {
-    final XCResultGenerator generator = _setupGenerator(resultJson: kSampleResultJsonWithIssues);
+    final XCResultGenerator generator = setupGenerator(resultJson: kSampleResultJsonWithIssues);
     final XCResultIssueDiscarder discarder = XCResultIssueDiscarder(typeMatcher: XCResultIssueType.warning);
     final XCResult result = await generator.generate(issueDiscarders: <XCResultIssueDiscarder>[discarder]);
     expect(result.issues.length, 1);
@@ -144,7 +151,7 @@ void main() {
 
   testWithoutContext(
       'correctly parse sample result json and discard base on subType', () async {
-    final XCResultGenerator generator = _setupGenerator(resultJson: kSampleResultJsonWithIssues);
+    final XCResultGenerator generator = setupGenerator(resultJson: kSampleResultJsonWithIssues);
     final XCResultIssueDiscarder discarder = XCResultIssueDiscarder(subTypeMatcher: RegExp(r'^Warning$'));
     final XCResult result = await generator.generate(issueDiscarders: <XCResultIssueDiscarder>[discarder]);
     expect(result.issues.length, 1);
@@ -158,7 +165,7 @@ void main() {
 
   testWithoutContext(
       'correctly parse sample result json and discard base on message', () async {
-    final XCResultGenerator generator = _setupGenerator(resultJson: kSampleResultJsonWithIssues);
+    final XCResultGenerator generator = setupGenerator(resultJson: kSampleResultJsonWithIssues);
     final XCResultIssueDiscarder discarder = XCResultIssueDiscarder(messageMatcher: RegExp(r"^The iOS deployment target 'IPHONEOS_DEPLOYMENT_TARGET' is set to 8.0, but the range of supported deployment target versions is 9.0 to 14.0.99.$"));
     final XCResult result = await generator.generate(issueDiscarders: <XCResultIssueDiscarder>[discarder]);
     expect(result.issues.length, 1);
@@ -172,7 +179,7 @@ void main() {
 
   testWithoutContext(
       'correctly parse sample result json and discard base on location', () async {
-    final XCResultGenerator generator = _setupGenerator(resultJson: kSampleResultJsonWithIssues);
+    final XCResultGenerator generator = setupGenerator(resultJson: kSampleResultJsonWithIssues);
     final XCResultIssueDiscarder discarder = XCResultIssueDiscarder(locationMatcher: RegExp(r'/Users/m/Projects/test_create/ios/Runner/AppDelegate.m'));
     final XCResult result = await generator.generate(issueDiscarders: <XCResultIssueDiscarder>[discarder]);
     expect(result.issues.length, 1);
@@ -186,7 +193,7 @@ void main() {
 
   testWithoutContext(
       'correctly parse sample result json with multiple discarders.', () async {
-    final XCResultGenerator generator = _setupGenerator(resultJson: kSampleResultJsonWithIssues);
+    final XCResultGenerator generator = setupGenerator(resultJson: kSampleResultJsonWithIssues);
     final XCResultIssueDiscarder discardWarnings = XCResultIssueDiscarder(typeMatcher: XCResultIssueType.warning);
     final XCResultIssueDiscarder discardSemanticIssues = XCResultIssueDiscarder(subTypeMatcher: RegExp(r'^Semantic Issue$'));
     final XCResult result = await generator.generate(issueDiscarders: <XCResultIssueDiscarder>[discardWarnings, discardSemanticIssues]);
@@ -197,7 +204,33 @@ void main() {
 
   testWithoutContext('correctly parse sample result json when no issues.',
       () async {
-    final XCResultGenerator generator = _setupGenerator(resultJson: kSampleResultJsonNoIssues);
+    final XCResultGenerator generator = setupGenerator(resultJson: kSampleResultJsonNoIssues);
+    final XCResult result = await generator.generate();
+    expect(result.issues.length, 0);
+    expect(result.parseSuccess, isTrue);
+    expect(result.parsingErrorMessage, isNull);
+  });
+
+  testWithoutContext(
+      'correctly parse sample result json with action issues.', () async {
+    final XCResultGenerator generator = setupGenerator(resultJson: kSampleResultJsonWithActionIssues);
+    final XCResultIssueDiscarder discarder = XCResultIssueDiscarder(typeMatcher: XCResultIssueType.warning);
+    final XCResult result = await generator.generate(issueDiscarders: <XCResultIssueDiscarder>[discarder]);
+    expect(result.issues.length, 1);
+    expect(result.issues.first.type, XCResultIssueType.error);
+    expect(result.issues.first.subType, 'Uncategorized');
+    expect(result.issues.first.message, contains('Unable to find a destination matching the provided destination specifier'));
+    expect(result.parseSuccess, isTrue);
+    expect(result.parsingErrorMessage, isNull);
+  });
+
+  testWithoutContext(
+      'correctly parse sample result on < Xcode 16.', () async {
+    final XCResultGenerator generator = setupGenerator(
+      resultJson: kSampleResultJsonNoIssues,
+      xcodeVersion: Version(15, 0, 0),
+      useLegacyFlag: false,
+    );
     final XCResult result = await generator.generate();
     expect(result.issues.length, 0);
     expect(result.parseSuccess, isTrue);
@@ -208,7 +241,7 @@ void main() {
       'error: `xcresulttool get` process fail should return an `XCResult` with stderr as `parsingErrorMessage`.',
       () async {
     const String fakeStderr = 'Fake: fail to parse result json.';
-    final XCResultGenerator generator = _setupGenerator(
+    final XCResultGenerator generator = setupGenerator(
       resultJson: '',
       exitCode: 1,
       stderr: fakeStderr,
@@ -221,7 +254,7 @@ void main() {
   });
 
   testWithoutContext('error: `xcresulttool get` no stdout', () async {
-    final XCResultGenerator generator = _setupGenerator(resultJson: '');
+    final XCResultGenerator generator = setupGenerator(resultJson: '');
 
     final XCResult result = await generator.generate();
     expect(result.issues.length, 0);
@@ -231,7 +264,7 @@ void main() {
   });
 
   testWithoutContext('error: wrong top level json format.', () async {
-    final XCResultGenerator generator = _setupGenerator(resultJson: '[]');
+    final XCResultGenerator generator = setupGenerator(resultJson: '[]');
 
     final XCResult result = await generator.generate();
     expect(result.issues.length, 0);
@@ -241,7 +274,7 @@ void main() {
   });
 
   testWithoutContext('error: fail to parse issue map', () async {
-    final XCResultGenerator generator = _setupGenerator(resultJson: '{}');
+    final XCResultGenerator generator = setupGenerator(resultJson: '{}');
 
     final XCResult result = await generator.generate();
     expect(result.issues.length, 0);
@@ -251,7 +284,7 @@ void main() {
   });
 
   testWithoutContext('error: invalid issue map', () async {
-    final XCResultGenerator generator = _setupGenerator(resultJson: kSampleResultJsonInvalidIssuesMap);
+    final XCResultGenerator generator = setupGenerator(resultJson: kSampleResultJsonInvalidIssuesMap);
 
     final XCResult result = await generator.generate();
     expect(result.issues.length, 0);

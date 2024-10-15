@@ -8,7 +8,7 @@ import 'package:flutter/painting.dart';
 // Currently, only the elevation values that are bound to one or more widgets are
 // defined here.
 
-/// Map of elevation offsets used by material design to [BoxShadow] definitions.
+/// Map of elevation offsets used by Material Design to [BoxShadow] definitions.
 ///
 /// The following elevations have defined shadows: 1, 2, 3, 4, 6, 8, 9, 12, 16, 24.
 ///
@@ -17,6 +17,15 @@ import 'package:flutter/painting.dart';
 ///
 /// This is useful when simulating a shadow with a [BoxDecoration] or other
 /// class that uses a list of [BoxShadow] objects.
+///
+/// Shadows defined by [kElevationToShadow] use [BlurStyle.normal]. To convert a
+/// shadow from [kElevationToShadow] to use a different [BlurStyle] (e.g. to use
+/// it in a [MagnifierDecoration]), consider an expression such as the
+/// following:
+///
+/// ```dart
+/// kElevationToShadow[12]!.map((BoxShadow shadow) => shadow.copyWith(blurStyle: BlurStyle.outer)).toList(),
+/// ```
 ///
 /// See also:
 ///

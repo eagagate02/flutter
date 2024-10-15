@@ -36,15 +36,11 @@ const Duration kThemeAnimationDuration = Duration(milliseconds: 200);
 ///    the [MaterialApp.theme] argument.
 class Theme extends StatelessWidget {
   /// Applies the given theme [data] to [child].
-  ///
-  /// The [data] and [child] arguments must not be null.
   const Theme({
-    Key? key,
+    super.key,
     required this.data,
     required this.child,
-  }) : assert(child != null),
-       assert(data != null),
-       super(key: key);
+  });
 
   /// Specifies the color and typography values for descendant widgets.
   final ThemeData data;
@@ -73,7 +69,7 @@ class Theme extends StatelessWidget {
   /// Widget build(BuildContext context) {
   ///   return Text(
   ///     'Example',
-  ///     style: Theme.of(context).textTheme.headline6,
+  ///     style: Theme.of(context).textTheme.titleLarge,
   ///   );
   /// }
   /// ```
@@ -90,14 +86,14 @@ class Theme extends StatelessWidget {
   /// Widget build(BuildContext context) {
   ///   return MaterialApp(
   ///     theme: ThemeData.light(),
-  ///     body: Builder(
+  ///     home: Builder(
   ///       // Create an inner BuildContext so that we can refer to
   ///       // the Theme with Theme.of().
   ///       builder: (BuildContext context) {
   ///         return Center(
   ///           child: Text(
   ///             'Example',
-  ///             style: Theme.of(context).textTheme.headline6,
+  ///             style: Theme.of(context).textTheme.titleLarge,
   ///           ),
   ///         );
   ///       },
@@ -109,8 +105,31 @@ class Theme extends StatelessWidget {
     final _InheritedTheme? inheritedTheme = context.dependOnInheritedWidgetOfExactType<_InheritedTheme>();
     final MaterialLocalizations? localizations = Localizations.of<MaterialLocalizations>(context, MaterialLocalizations);
     final ScriptCategory category = localizations?.scriptCategory ?? ScriptCategory.englishLike;
-    final ThemeData theme = inheritedTheme?.theme.data ?? _kFallbackTheme;
+    final InheritedCupertinoTheme? inheritedCupertinoTheme = context.dependOnInheritedWidgetOfExactType<InheritedCupertinoTheme>();
+    final ThemeData theme = inheritedTheme?.theme.data ?? (
+      inheritedCupertinoTheme != null ? CupertinoBasedMaterialThemeData(themeData: inheritedCupertinoTheme.theme.data).materialTheme : _kFallbackTheme
+    );
     return ThemeData.localize(theme, theme.typography.geometryThemeFor(category));
+  }
+
+  // The inherited themes in widgets library can not infer their values from
+  // Theme in material library. Wraps the child with these inherited themes to
+  // overrides their values directly.
+  Widget _wrapsWidgetThemes(BuildContext context, Widget child) {
+    final DefaultSelectionStyle selectionStyle = DefaultSelectionStyle.of(context);
+    return IconTheme(
+      data: data.iconTheme,
+      child: DefaultSelectionStyle(
+        selectionColor: data.textSelectionTheme.selectionColor ?? selectionStyle.selectionColor,
+        cursorColor: data.textSelectionTheme.cursorColor ?? selectionStyle.cursorColor,
+        child: child,
+      ),
+    );
+  }
+
+  CupertinoThemeData _inheritedCupertinoThemeData(BuildContext context) {
+    final InheritedCupertinoTheme? inheritedTheme = context.dependOnInheritedWidgetOfExactType<InheritedCupertinoTheme>();
+    return (inheritedTheme?.theme.data ?? MaterialBasedCupertinoThemeData(materialTheme: data)).resolveFrom(context);
   }
 
   @override
@@ -118,16 +137,11 @@ class Theme extends StatelessWidget {
     return _InheritedTheme(
       theme: this,
       child: CupertinoTheme(
-        // We're using a MaterialBasedCupertinoThemeData here instead of a
-        // CupertinoThemeData because it defers some properties to the Material
-        // ThemeData.
-        data: MaterialBasedCupertinoThemeData(
-          materialTheme: data,
-        ),
-        child: IconTheme(
-          data: data.iconTheme,
-          child: child,
-        ),
+        // If a CupertinoThemeData doesn't exist, we're using a
+        // MaterialBasedCupertinoThemeData here instead of a CupertinoThemeData
+        // because it defers some properties to the Material ThemeData.
+        data: _inheritedCupertinoThemeData(context),
+        child: _wrapsWidgetThemes(context, child),
       ),
     );
   }
@@ -141,11 +155,9 @@ class Theme extends StatelessWidget {
 
 class _InheritedTheme extends InheritedTheme {
   const _InheritedTheme({
-    Key? key,
     required this.theme,
-    required Widget child,
-  }) : assert(theme != null),
-       super(key: key, child: child);
+    required super.child,
+  });
 
   final Theme theme;
 
@@ -170,7 +182,7 @@ class ThemeDataTween extends Tween<ThemeData> {
   /// The [begin] and [end] properties must be non-null before the tween is
   /// first used, but the arguments can be null if the values are going to be
   /// filled in later.
-  ThemeDataTween({ ThemeData? begin, ThemeData? end }) : super(begin: begin, end: end);
+  ThemeDataTween({ super.begin, super.end });
 
   @override
   ThemeData lerp(double t) => ThemeData.lerp(begin!, end!, t);
@@ -193,18 +205,15 @@ class ThemeDataTween extends Tween<ThemeData> {
 class AnimatedTheme extends ImplicitlyAnimatedWidget {
   /// Creates an animated theme.
   ///
-  /// By default, the theme transition uses a linear curve. The [data] and
-  /// [child] arguments must not be null.
+  /// By default, the theme transition uses a linear curve.
   const AnimatedTheme({
-    Key? key,
+    super.key,
     required this.data,
-    Curve curve = Curves.linear,
-    Duration duration = kThemeAnimationDuration,
-    VoidCallback? onEnd,
+    super.curve,
+    super.duration = kThemeAnimationDuration,
+    super.onEnd,
     required this.child,
-  }) : assert(child != null),
-       assert(data != null),
-       super(key: key, curve: curve, duration: duration, onEnd: onEnd);
+  });
 
   /// Specifies the color and typography values for descendant widgets.
   final ThemeData data;

@@ -20,7 +20,7 @@ void main() {
       testConfig = Config.test();
       platform = FakePlatform(environment: <String, String>{});
 
-      for (final Feature feature in allFeatures) {
+      for (final Feature feature in allConfigurableFeatures) {
         testConfig.setValue(feature.configSetting!, false);
       }
 
@@ -33,7 +33,7 @@ void main() {
 
     FeatureFlags createFlags(String channel) {
       return FlutterFeatureFlags(
-        flutterVersion: FakeFlutterVersion(channel: channel),
+        flutterVersion: FakeFlutterVersion(branch: channel),
         config: testConfig,
         platform: platform,
       );
@@ -83,28 +83,22 @@ void main() {
 
     testWithoutContext('Flutter web help string', () {
       expect(flutterWebFeature.generateHelpMessage(),
-      'Enable or disable Flutter for web. '
-      'This setting will take effect on the master, beta, and stable channels.');
+      'Enable or disable Flutter for web.');
     });
 
     testWithoutContext('Flutter macOS desktop help string', () {
       expect(flutterMacOSDesktopFeature.generateHelpMessage(),
-      'Enable or disable support for desktop on macOS. '
-      'This setting will take effect on the master, beta, and stable channels. '
-      'Newer beta versions are available on the beta channel.');
+      'Enable or disable support for desktop on macOS.');
     });
 
     testWithoutContext('Flutter Linux desktop help string', () {
       expect(flutterLinuxDesktopFeature.generateHelpMessage(),
-      'Enable or disable support for desktop on Linux. '
-      'This setting will take effect on the master, beta, and stable channels. '
-      'Newer beta versions are available on the beta channel.');
+      'Enable or disable support for desktop on Linux.');
     });
 
     testWithoutContext('Flutter Windows desktop help string', () {
       expect(flutterWindowsDesktopFeature.generateHelpMessage(),
-      'Enable or disable support for desktop on Windows. '
-      'This setting will take effect on the master, beta, and stable channels.');
+      'Enable or disable support for desktop on Windows.');
     });
 
     testWithoutContext('help string on multiple channels', () {
@@ -116,8 +110,7 @@ void main() {
         configSetting: 'foo',
       );
 
-      expect(testWithoutContextFeature.generateHelpMessage(), 'Enable or disable example. '
-          'This setting will take effect on the master, beta, and stable channels.');
+      expect(testWithoutContextFeature.generateHelpMessage(), 'Enable or disable example.');
     });
 
     /// Flutter Web
@@ -367,36 +360,56 @@ void main() {
       expect(featureFlags.isWindowsEnabled, true);
     });
 
-    // Windows UWP desktop
+    for (final Feature feature in <Feature>[
+      flutterWindowsDesktopFeature,
+      flutterMacOSDesktopFeature,
+      flutterLinuxDesktopFeature,
+    ]) {
+      test('${feature.name} available and enabled by default on master', () {
+        expect(feature.master.enabledByDefault, true);
+        expect(feature.master.available, true);
+      });
+      test('${feature.name} available and enabled by default on beta', () {
+        expect(feature.beta.enabledByDefault, true);
+        expect(feature.beta.available, true);
+      });
+      test('${feature.name} available and enabled by default on stable', () {
+        expect(feature.stable.enabledByDefault, true);
+        expect(feature.stable.available, true);
+      });
+    }
 
-    testWithoutContext('Flutter Windows UWP desktop off by default on master', () {
-      final FeatureFlags featureFlags = createFlags('master');
+    // Custom devices on all channels
+    for (final String channel in <String>['master', 'beta', 'stable']) {
+      testWithoutContext('Custom devices are enabled with flag on $channel', () {
+        final FeatureFlags featureFlags = createFlags(channel);
+        testConfig.setValue('enable-custom-devices', true);
+        expect(featureFlags.areCustomDevicesEnabled, true);
+      });
 
-      expect(featureFlags.isWindowsUwpEnabled, false);
+      testWithoutContext('Custom devices are enabled with environment variable on $channel', () {
+        final FeatureFlags featureFlags = createFlags(channel);
+        platform.environment = <String, String>{'FLUTTER_CUSTOM_DEVICES': 'true'};
+        expect(featureFlags.areCustomDevicesEnabled, true);
+      });
+    }
+
+    test('${nativeAssets.name} availability and default enabled', () {
+      expect(nativeAssets.master.enabledByDefault, false);
+      expect(nativeAssets.master.available, true);
+      expect(nativeAssets.beta.enabledByDefault, false);
+      expect(nativeAssets.beta.available, false);
+      expect(nativeAssets.stable.enabledByDefault, false);
+      expect(nativeAssets.stable.available, false);
     });
 
-    testWithoutContext('Flutter Windows UWP desktop enabled with config on master', () {
-      final FeatureFlags featureFlags = createFlags('master');
-      testConfig.setValue('enable-windows-uwp-desktop', true);
-
-      expect(featureFlags.isWindowsUwpEnabled, true);
-    });
-
-    testWithoutContext('Flutter Windows UWP desktop config includes removal warning', () {
-      expect(windowsUwpEmbedding.extraHelpText, contains('Windows UWP support is obsolete and will be removed'));
-    });
-
-    testWithoutContext('Flutter Windows UWP desktop off by default on stable', () {
-      final FeatureFlags featureFlags = createFlags('stable');
-
-      expect(featureFlags.isWindowsUwpEnabled, false);
-    });
-
-    testWithoutContext('Flutter Windows UWP desktop not enabled with config on stable', () {
-      final FeatureFlags featureFlags = createFlags('stable');
-      testConfig.setValue('enable-windows-uwp-desktop', true);
-
-      expect(featureFlags.isWindowsUwpEnabled, false);
+    test('${swiftPackageManager.name} availability and default enabled', () {
+      expect(swiftPackageManager.master.enabledByDefault, false);
+      expect(swiftPackageManager.master.available, true);
+      expect(swiftPackageManager.beta.enabledByDefault, false);
+      expect(swiftPackageManager.beta.available, false);
+      expect(swiftPackageManager.stable.enabledByDefault, false);
+      expect(swiftPackageManager.stable.available, false);
     });
 
     for (final Feature feature in <Feature>[

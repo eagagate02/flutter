@@ -28,7 +28,10 @@ class TestTree {
                 child: RenderPositionedBox(
                   child: child = RenderConstrainedBox(
                     additionalConstraints: const BoxConstraints.tightFor(height: 20.0, width: 20.0),
-                    child: RenderSemanticsAnnotations(attributedLabel: AttributedString('Hello there foo'), textDirection: TextDirection.ltr),
+                    child: RenderSemanticsAnnotations(
+                      textDirection: TextDirection.ltr,
+                      properties: const SemanticsProperties(label: 'Hello there foo'),
+                    ),
                   ),
                 ),
               ),
@@ -132,11 +135,10 @@ void main() {
   test('objects can be detached and re-attached: semantics (no change)', () {
     final TestTree testTree = TestTree();
     int semanticsUpdateCount = 0;
-    final SemanticsHandle semanticsHandle = TestRenderingFlutterBinding.instance.pipelineOwner.ensureSemantics(
-      listener: () {
-        ++semanticsUpdateCount;
-      },
-    );
+    final SemanticsHandle semanticsHandle = TestRenderingFlutterBinding.instance.ensureSemantics();
+    TestRenderingFlutterBinding.instance.pipelineOwner.semanticsOwner!.addListener(() {
+      ++semanticsUpdateCount;
+    });
     // Lay out, composite, paint, and update semantics
     layout(testTree.root, phase: EnginePhase.flushSemantics);
     expect(semanticsUpdateCount, 1);
@@ -155,11 +157,10 @@ void main() {
   test('objects can be detached and re-attached: semantics (with change)', () {
     final TestTree testTree = TestTree();
     int semanticsUpdateCount = 0;
-    final SemanticsHandle semanticsHandle = TestRenderingFlutterBinding.instance.pipelineOwner.ensureSemantics(
-      listener: () {
-        ++semanticsUpdateCount;
-      },
-    );
+    final SemanticsHandle semanticsHandle = TestRenderingFlutterBinding.instance.ensureSemantics();
+    TestRenderingFlutterBinding.instance.pipelineOwner.semanticsOwner!.addListener(() {
+      ++semanticsUpdateCount;
+    });
     // Lay out, composite, paint, and update semantics
     layout(testTree.root, phase: EnginePhase.flushSemantics);
     expect(semanticsUpdateCount, 1);

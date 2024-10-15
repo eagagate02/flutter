@@ -2,13 +2,20 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+/// @docImport 'package:flutter/widgets.dart';
+library;
 
 import 'package:flutter/foundation.dart';
 
 import 'tween.dart';
 
+export 'dart:ui' show VoidCallback;
+
+export 'tween.dart' show Animatable;
+
 // Examples can assume:
 // late AnimationController _controller;
+// late ValueNotifier<double> _scrollPosition;
 
 /// The status of an animation.
 enum AnimationStatus {
@@ -22,11 +29,38 @@ enum AnimationStatus {
   reverse,
 
   /// The animation is stopped at the end.
-  completed,
+  completed;
+
+  /// Whether the animation is stopped at the beginning.
+  bool get isDismissed => this == dismissed;
+
+  /// Whether the animation is stopped at the end.
+  bool get isCompleted => this == completed;
+
+  /// Whether the animation is running in either direction.
+  bool get isAnimating => switch (this) {
+    forward   || reverse   => true,
+    completed || dismissed => false,
+  };
+
+  /// {@template flutter.animation.AnimationStatus.isForwardOrCompleted}
+  /// Whether the current aim of the animation is toward completion.
+  ///
+  /// Specifically, returns `true` for [AnimationStatus.forward] or
+  /// [AnimationStatus.completed], and `false` for
+  /// [AnimationStatus.reverse] or [AnimationStatus.dismissed].
+  /// {@endtemplate}
+  bool get isForwardOrCompleted => switch (this) {
+    forward || completed => true,
+    reverse || dismissed => false,
+  };
 }
 
 /// Signature for listeners attached using [Animation.addStatusListener].
 typedef AnimationStatusListener = void Function(AnimationStatus status);
+
+/// Signature for method used to transform values in [Animation.fromValueListenable].
+typedef ValueListenableTransformer<T> = T Function(T);
 
 /// An animation with a value of type `T`.
 ///
@@ -46,11 +80,63 @@ typedef AnimationStatusListener = void Function(AnimationStatus status);
 /// See also:
 ///
 ///  * [Tween], which can be used to create [Animation] subclasses that
-///    convert `Animation<double>`s into other kinds of `Animation`s.
+///    convert `Animation<double>`s into other kinds of [Animation]s.
 abstract class Animation<T> extends Listenable implements ValueListenable<T> {
   /// Abstract const constructor. This constructor enables subclasses to provide
   /// const constructors so that they can be used in const expressions.
   const Animation();
+
+  /// Create a new animation from a [ValueListenable].
+  ///
+  /// The returned animation will always have an animations status of
+  /// [AnimationStatus.forward]. The value of the provided listenable can
+  /// be optionally transformed using the [transformer] function.
+  ///
+  /// {@tool snippet}
+  ///
+  /// This constructor can be used to replace instances of [ValueListenableBuilder]
+  /// widgets with a corresponding animated widget, like a [FadeTransition].
+  ///
+  /// Before:
+  ///
+  /// ```dart
+  /// Widget build(BuildContext context) {
+  ///   return ValueListenableBuilder<double>(
+  ///     valueListenable: _scrollPosition,
+  ///     builder: (BuildContext context, double value, Widget? child) {
+  ///       final double opacity = (value / 1000).clamp(0, 1);
+  ///       return Opacity(opacity: opacity, child: child);
+  ///     },
+  ///     child: const ColoredBox(
+  ///       color: Colors.red,
+  ///       child: Text('Hello, Animation'),
+  ///     ),
+  ///   );
+  /// }
+  /// ```
+  ///
+  /// {@end-tool}
+  /// {@tool snippet}
+  ///
+  /// After:
+  ///
+  /// ```dart
+  /// Widget build2(BuildContext context) {
+  ///   return FadeTransition(
+  ///     opacity: Animation<double>.fromValueListenable(_scrollPosition, transformer: (double value) {
+  ///       return (value / 1000).clamp(0, 1);
+  ///     }),
+  ///     child: const ColoredBox(
+  ///       color: Colors.red,
+  ///       child: Text('Hello, Animation'),
+  ///     ),
+  ///   );
+  /// }
+  /// ```
+  /// {@end-tool}
+  factory Animation.fromValueListenable(ValueListenable<T> listenable, {
+    ValueListenableTransformer<T>? transformer,
+  }) = _ValueListenableDelegateAnimation<T>;
 
   // keep these next five dartdocs in sync with the dartdocs in AnimationWithParentMixin<T>
 
@@ -90,10 +176,20 @@ abstract class Animation<T> extends Listenable implements ValueListenable<T> {
   T get value;
 
   /// Whether this animation is stopped at the beginning.
-  bool get isDismissed => status == AnimationStatus.dismissed;
+  bool get isDismissed => status.isDismissed;
 
   /// Whether this animation is stopped at the end.
-  bool get isCompleted => status == AnimationStatus.completed;
+  bool get isCompleted => status.isCompleted;
+
+  /// Whether this animation is running in either direction.
+  ///
+  /// By default, this value is equal to `status.isAnimating`, but
+  /// [AnimationController] overrides this method so that its output
+  /// depends on whether the controller is actively ticking.
+  bool get isAnimating => status.isAnimating;
+
+  /// {@macro flutter.animation.AnimationStatus.isForwardOrCompleted}
+  bool get isForwardOrCompleted => status.isForwardOrCompleted;
 
   /// Chains a [Tween] (or [CurveTween]) to this [Animation].
   ///
@@ -113,7 +209,7 @@ abstract class Animation<T> extends Listenable implements ValueListenable<T> {
   /// controller goes from 0.0 to 1.0:
   ///
   /// ```dart
-  /// Animation<Alignment> _alignment1 = _controller.drive(
+  /// Animation<Alignment> alignment1 = _controller.drive(
   ///   AlignmentTween(
   ///     begin: Alignment.topLeft,
   ///     end: Alignment.topRight,
@@ -123,7 +219,7 @@ abstract class Animation<T> extends Listenable implements ValueListenable<T> {
   /// {@end-tool}
   /// {@tool snippet}
   ///
-  /// The `_alignment.value` could then be used in a widget's build method, for
+  /// The `alignment1.value` could then be used in a widget's build method, for
   /// instance, to position a child using an [Align] widget such that the
   /// position of the child shifts over time from the top left to the top right.
   ///
@@ -148,13 +244,30 @@ abstract class Animation<T> extends Listenable implements ValueListenable<T> {
   /// values that depend on other variables:
   ///
   /// ```dart
-  /// Animation<Alignment> _alignment3 = _controller
+  /// Animation<Alignment> alignment3 = _controller
   ///   .drive(CurveTween(curve: Curves.easeIn))
   ///   .drive(AlignmentTween(
   ///     begin: Alignment.topLeft,
   ///     end: Alignment.topRight,
   ///   ));
   /// ```
+  /// {@end-tool}
+  /// {@tool snippet}
+  ///
+  /// This method can be paired with an [Animatable] created via
+  /// [Animatable.fromCallback] in order to transform an animation with a
+  /// callback function. This can be useful for performing animations that
+  /// do not have well defined start or end points. This example transforms
+  /// the current scroll position into a color that cycles through values
+  /// of red.
+  ///
+  /// ```dart
+  /// Animation<Color> color = Animation<double>.fromValueListenable(_scrollPosition)
+  ///   .drive(Animatable<Color>.fromCallback((double value) {
+  ///     return Color.fromRGBO(value.round() % 255, 0, 0, 1);
+  ///   }));
+  /// ```
+  ///
   /// {@end-tool}
   ///
   /// See also:
@@ -164,6 +277,8 @@ abstract class Animation<T> extends Listenable implements ValueListenable<T> {
   ///  * [CurvedAnimation], an alternative to [CurveTween] for applying easing
   ///    curves, which supports distinct curves in the forward direction and the
   ///    reverse direction.
+  ///  * [Animatable.fromCallback], which allows creating an [Animatable] from an
+  ///    arbitrary transformation.
   @optionalTypeArgs
   Animation<U> drive<U>(Animatable<U> child) {
     assert(this is Animation<double>);
@@ -190,16 +305,47 @@ abstract class Animation<T> extends Listenable implements ValueListenable<T> {
   /// * "&#x23ED;": [AnimationStatus.completed] ([value] == 1.0)
   /// * "&#x23EE;": [AnimationStatus.dismissed] ([value] == 0.0)
   String toStringDetails() {
-    assert(status != null);
-    switch (status) {
-      case AnimationStatus.forward:
-        return '\u25B6'; // >
-      case AnimationStatus.reverse:
-        return '\u25C0'; // <
-      case AnimationStatus.completed:
-        return '\u23ED'; // >>|
-      case AnimationStatus.dismissed:
-        return '\u23EE'; // |<<
-    }
+    return switch (status) {
+      AnimationStatus.forward   => '\u25B6', // >
+      AnimationStatus.reverse   => '\u25C0', // <
+      AnimationStatus.completed => '\u23ED', // >>|
+      AnimationStatus.dismissed => '\u23EE', // |<<
+    };
   }
+}
+
+// An implementation of an animation that delegates to a value listenable with a fixed direction.
+class _ValueListenableDelegateAnimation<T> extends Animation<T> {
+  _ValueListenableDelegateAnimation(this._listenable, {
+    ValueListenableTransformer<T>? transformer,
+  }) : _transformer = transformer;
+
+  final ValueListenable<T> _listenable;
+  final ValueListenableTransformer<T>? _transformer;
+
+  @override
+  void addListener(VoidCallback listener) {
+    _listenable.addListener(listener);
+  }
+
+  @override
+  void addStatusListener(AnimationStatusListener listener) {
+    // status will never change.
+  }
+
+  @override
+  void removeListener(VoidCallback listener) {
+    _listenable.removeListener(listener);
+  }
+
+  @override
+  void removeStatusListener(AnimationStatusListener listener) {
+    // status will never change.
+  }
+
+  @override
+  AnimationStatus get status => AnimationStatus.forward;
+
+  @override
+  T get value => _transformer?.call(_listenable.value) ?? _listenable.value;
 }

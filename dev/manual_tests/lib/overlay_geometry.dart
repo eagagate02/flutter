@@ -37,13 +37,16 @@ class _MarkerPainter extends CustomPainter {
       ..color = const Color(0xFFFFFFFF)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.0;
-    if (type == MarkerType.topLeft) {
-      canvas.drawLine(Offset(r, r), Offset(r + r - 1.0, r), paint);
-      canvas.drawLine(Offset(r, r), Offset(r, r + r - 1.0), paint);
-    }
-    if (type == MarkerType.bottomRight) {
-      canvas.drawLine(Offset(r, r), Offset(1.0, r), paint);
-      canvas.drawLine(Offset(r, r), Offset(r, 1.0), paint);
+
+    switch (type) {
+      case MarkerType.topLeft:
+        canvas.drawLine(Offset(r, r), Offset(r + r - 1.0, r), paint);
+        canvas.drawLine(Offset(r, r), Offset(r, r + r - 1.0), paint);
+      case MarkerType.bottomRight:
+        canvas.drawLine(Offset(r, r), Offset(1.0, r), paint);
+        canvas.drawLine(Offset(r, r), Offset(r, 1.0), paint);
+      case MarkerType.touch:
+        break;
     }
   }
 
@@ -105,8 +108,9 @@ class CardBuilder extends SliverChildDelegate {
 
   @override
   Widget? build(BuildContext context, int index) {
-    if (index >= cardModels.length)
+    if (index >= cardModels.length) {
       return null;
+    }
     final CardModel cardModel = cardModels[index];
     return GestureDetector(
       key: cardModel.key,
@@ -171,8 +175,8 @@ class OverlayGeometryAppState extends State<OverlayGeometryApp> {
       markers[MarkerType.topLeft] = box!.localToGlobal(Offset.zero);
       final Size size = box.size;
       markers[MarkerType.bottomRight] = box.localToGlobal(Offset(size.width, size.height));
-      final ScrollableState? scrollable = Scrollable.of(target.currentContext!);
-      markersScrollOffset = scrollable!.position.pixels;
+      final ScrollableState scrollable = Scrollable.of(target.currentContext!);
+      markersScrollOffset = scrollable.position.pixels;
     });
   }
 

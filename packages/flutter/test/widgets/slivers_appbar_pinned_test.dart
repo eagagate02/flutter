@@ -88,10 +88,10 @@ void main() {
         ' │ parentData: paintOffset=Offset(0.0, 0.0) (can use size)\n'
         ' │ constraints: SliverConstraints(AxisDirection.down,\n'
         ' │   GrowthDirection.forward, ScrollDirection.idle, scrollOffset:\n'
-        ' │   0.0, remainingPaintExtent: 600.0, crossAxisExtent: 800.0,\n'
-        ' │   crossAxisDirection: AxisDirection.right,\n'
-        ' │   viewportMainAxisExtent: 600.0, remainingCacheExtent: 850.0,\n'
-        ' │   cacheOrigin: 0.0)\n'
+        ' │   0.0, precedingScrollExtent: 0.0, remainingPaintExtent: 600.0,\n'
+        ' │   crossAxisExtent: 800.0, crossAxisDirection:\n'
+        ' │   AxisDirection.right, viewportMainAxisExtent: 600.0,\n'
+        ' │   remainingCacheExtent: 850.0, cacheOrigin: 0.0)\n'
         ' │ geometry: SliverGeometry(scrollExtent: 200.0, paintExtent: 200.0,\n'
         ' │   maxPaintExtent: 200.0, hasVisualOverflow: true, cacheExtent:\n'
         ' │   200.0)\n'
@@ -340,8 +340,9 @@ class RenderBigSliver extends RenderSliver {
   double get height => _height;
   double _height;
   set height(double value) {
-    if (value == _height)
+    if (value == _height) {
       return;
+    }
     _height = value;
     markNeedsLayout();
   }
@@ -359,7 +360,7 @@ class RenderBigSliver extends RenderSliver {
 }
 
 class BigSliver extends LeafRenderObjectWidget {
-  const BigSliver({ Key? key, required this.height }) : super(key: key);
+  const BigSliver({ super.key, required this.height });
 
   final double height;
 

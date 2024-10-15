@@ -5,6 +5,7 @@
 // This file is run as part of a reduced test set in CI on Mac and Windows
 // machines.
 @Tags(<String>['reduced-test-set'])
+library;
 
 import 'dart:math' as math;
 
@@ -63,6 +64,17 @@ void main() {
       ],
       stops: <double>[0, 1],
     ));
+  });
+
+  test('LinearGradient.lerp identical a,b', () {
+    expect(LinearGradient.lerp(null, null, 0), null);
+    const LinearGradient gradient = LinearGradient(
+      colors: <Color>[
+        Color(0x33333333),
+        Color(0x66666666),
+      ],
+    );
+    expect(identical(LinearGradient.lerp(gradient, gradient, 0.5), gradient), true);
   });
 
   test('LinearGradient lerp test with stops', () {
@@ -177,6 +189,32 @@ void main() {
         1.0,
       ],
     ));
+  });
+
+  test('LinearGradient lerp test with transforms', () {
+    const LinearGradient testGradient1 = LinearGradient(
+      transform: GradientRotation(math.pi/4),
+      colors: <Color>[
+        Color(0x33333333),
+        Color(0x66666666),
+      ],
+      stops: <double>[0, 1],
+    );
+    const LinearGradient testGradient2 = LinearGradient(
+      transform: GradientRotation(math.pi/2),
+      colors: <Color>[
+        Color(0x33333333),
+        Color(0x66666666),
+      ],
+      stops: <double>[0, 1],
+    );
+
+    final LinearGradient? actual0 = LinearGradient.lerp(testGradient1, testGradient2, 0.0);
+    final LinearGradient? actual1 = LinearGradient.lerp(testGradient1, testGradient2, 1.0);
+    final LinearGradient? actual2 = LinearGradient.lerp(testGradient1, testGradient2, 0.5);
+    expect(testGradient1, equals(actual0));
+    expect(testGradient2, equals(actual1));
+    expect(testGradient2, equals(actual2));
   });
 
   test('LinearGradient toString', () {
@@ -341,6 +379,17 @@ void main() {
     ));
   });
 
+  test('RadialGradient.lerp identical a,b', () {
+    expect(RadialGradient.lerp(null, null, 0), null);
+    const RadialGradient gradient = RadialGradient(
+      colors: <Color>[
+        Color(0x33333333),
+        Color(0x66666666),
+      ],
+    );
+    expect(identical(RadialGradient.lerp(gradient, gradient, 0.5), gradient), true);
+  });
+
   test('RadialGradient lerp test with stops', () {
     const RadialGradient testGradient1 = RadialGradient(
       center: Alignment.topLeft,
@@ -458,6 +507,32 @@ void main() {
     ));
   });
 
+  test('RadialGradient lerp test with transforms', () {
+    const RadialGradient testGradient1 = RadialGradient(
+      transform: GradientRotation(math.pi/4),
+      colors: <Color>[
+        Color(0x33333333),
+        Color(0x66666666),
+      ],
+      stops: <double>[0, 1],
+    );
+    const RadialGradient testGradient2 = RadialGradient(
+      transform: GradientRotation(math.pi/2),
+      colors: <Color>[
+        Color(0x33333333),
+        Color(0x66666666),
+      ],
+      stops: <double>[0, 1],
+    );
+
+    final RadialGradient? actual0 = RadialGradient.lerp(testGradient1, testGradient2, 0.0);
+    final RadialGradient? actual1 = RadialGradient.lerp(testGradient1, testGradient2, 1.0);
+    final RadialGradient? actual2 = RadialGradient.lerp(testGradient1, testGradient2, 0.5);
+    expect(testGradient1, equals(actual0));
+    expect(testGradient2, equals(actual1));
+    expect(testGradient2, equals(actual2));
+  });
+
   test('RadialGradient lerp test with focal', () {
     const RadialGradient testGradient1 = RadialGradient(
       center: Alignment.topLeft,
@@ -554,6 +629,17 @@ void main() {
         1.0,
       ],
     ));
+  });
+
+  test('SweepGradient.lerp identical a,b', () {
+    expect(SweepGradient.lerp(null, null, 0), null);
+    const SweepGradient gradient = SweepGradient(
+      colors: <Color>[
+        Color(0x33333333),
+        Color(0x66666666),
+      ],
+    );
+    expect(identical(SweepGradient.lerp(gradient, gradient, 0.5), gradient), true);
   });
 
   test('SweepGradient lerp test with stops', () {
@@ -670,6 +756,32 @@ void main() {
         1.0,
       ],
     ));
+  });
+
+  test('SweepGradient lerp test with transforms', () {
+    const SweepGradient testGradient1 = SweepGradient(
+      transform: GradientRotation(math.pi/4),
+      colors: <Color>[
+        Color(0x33333333),
+        Color(0x66666666),
+      ],
+      stops: <double>[0, 1],
+    );
+    const SweepGradient testGradient2 = SweepGradient(
+      transform: GradientRotation(math.pi/2),
+      colors: <Color>[
+        Color(0x33333333),
+        Color(0x66666666),
+      ],
+      stops: <double>[0, 1],
+    );
+
+    final SweepGradient? actual0 = SweepGradient.lerp(testGradient1, testGradient2, 0.0);
+    final SweepGradient? actual1 = SweepGradient.lerp(testGradient1, testGradient2, 1.0);
+    final SweepGradient? actual2 = SweepGradient.lerp(testGradient1, testGradient2, 0.5);
+    expect(testGradient1, equals(actual0));
+    expect(testGradient2, equals(actual1));
+    expect(testGradient2, equals(actual2));
   });
 
   test('SweepGradient scale test)', () {

@@ -6,6 +6,7 @@ import 'package:file/file.dart';
 import 'package:file/local.dart' as local_fs;
 import 'package:meta/meta.dart';
 
+import 'common.dart';
 import 'io.dart';
 import 'platform.dart';
 import 'process.dart';
@@ -108,12 +109,19 @@ String getDisplayPath(String fullPath, FileSystem fileSystem) {
 ///
 /// Skips files if [shouldCopyFile] returns `false`.
 /// Does not recurse over directories if [shouldCopyDirectory] returns `false`.
+///
+/// If [followLinks] is false, then any symbolic links found are reported as
+/// [Link] objects, rather than as directories or files, and are not recursed into.
+///
+/// If [followLinks] is true, then working links are reported as directories or
+/// files, depending on what they point to.
 void copyDirectory(
   Directory srcDir,
   Directory destDir, {
   bool Function(File srcFile, File destFile)? shouldCopyFile,
   bool Function(Directory)? shouldCopyDirectory,
   void Function(File srcFile, File destFile)? onFileCopied,
+  bool followLinks = true,
 }) {
   if (!srcDir.existsSync()) {
     throw Exception('Source directory "${srcDir.path}" does not exist, nothing to copy');
@@ -123,7 +131,7 @@ void copyDirectory(
     destDir.createSync(recursive: true);
   }
 
-  for (final FileSystemEntity entity in srcDir.listSync()) {
+  for (final FileSystemEntity entity in srcDir.listSync(followLinks: followLinks)) {
     final String newPath = destDir.fileSystem.path.join(destDir.path, entity.basename);
     if (entity is Link) {
       final Link newLink = destDir.fileSystem.link(newPath);
@@ -144,6 +152,7 @@ void copyDirectory(
         destDir.fileSystem.directory(newPath),
         shouldCopyFile: shouldCopyFile,
         onFileCopied: onFileCopied,
+        followLinks: followLinks,
       );
     } else {
       throw Exception('${entity.path} is neither File nor Directory, was ${entity.runtimeType}');
@@ -176,17 +185,18 @@ File getUniqueFile(Directory dir, String baseName, String ext) {
 /// directories and files that the tool creates under the system temporary
 /// directory when the tool exits either normally or when killed by a signal.
 class LocalFileSystem extends local_fs.LocalFileSystem {
-  LocalFileSystem(this._signals, this._fatalSignals, this._shutdownHooks);
+  LocalFileSystem(this._signals, this._fatalSignals, this.shutdownHooks);
 
   @visibleForTesting
   LocalFileSystem.test({
     required Signals signals,
     List<ProcessSignal> fatalSignals = Signals.defaultExitSignals,
-  }) : this(signals, fatalSignals, null);
+  }) : this(signals, fatalSignals, ShutdownHooks());
 
   Directory? _systemTemp;
   final Map<ProcessSignal, Object> _signalTokens = <ProcessSignal, Object>{};
-  final ShutdownHooks? _shutdownHooks;
+
+  final ShutdownHooks shutdownHooks;
 
   Future<void> dispose() async {
     _tryToDeleteTemp();
@@ -205,7 +215,7 @@ class LocalFileSystem extends local_fs.LocalFileSystem {
         _systemTemp?.deleteSync(recursive: true);
       }
     } on FileSystemException {
-      // ignore.
+      // ignore
     }
     _systemTemp = null;
   }
@@ -218,7 +228,12 @@ class LocalFileSystem extends local_fs.LocalFileSystem {
   @override
   Directory get systemTempDirectory {
     if (_systemTemp == null) {
-      _systemTemp = super.systemTempDirectory.createTempSync('flutter_tools.')
+      if (!superSystemTempDirectory.existsSync()) {
+        throwToolExit('Your system temp directory (${superSystemTempDirectory.path}) does not exist. '
+          'Did you set an invalid override in your environment? See issue https://github.com/flutter/flutter/issues/74042 for more context.'
+        );
+      }
+      _systemTemp = superSystemTempDirectory.createTempSync('flutter_tools.')
         ..createSync(recursive: true);
       // Make sure that the temporary directory is cleaned up if the tool is
       // killed by a signal.
@@ -233,10 +248,14 @@ class LocalFileSystem extends local_fs.LocalFileSystem {
       }
       // Make sure that the temporary directory is cleaned up when the tool
       // exits normally.
-      _shutdownHooks?.addShutdownHook(
+      shutdownHooks.addShutdownHook(
         _tryToDeleteTemp,
       );
     }
     return _systemTemp!;
   }
+
+  // This only exist because the memory file system does not support a systemTemp that does not exists #74042
+  @visibleForTesting
+  Directory get superSystemTempDirectory => super.systemTempDirectory;
 }

@@ -2,13 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// @dart = 2.8
-
 import 'package:file/memory.dart';
 import 'package:file_testing/file_testing.dart';
 import 'package:flutter_tools/src/base/file_system.dart';
 import 'package:flutter_tools/src/base/logger.dart';
 import 'package:flutter_tools/src/commands/update_packages.dart';
+import 'package:flutter_tools/src/update_packages_pins.dart';
 
 import '../src/common.dart';
 
@@ -19,12 +18,13 @@ description: A framework for writing Flutter applications
 homepage: http://flutter.dev
 
 environment:
-  sdk: ">=2.2.2 <3.0.0"
+  sdk: '>=3.2.0-0 <4.0.0'
 
 dependencies:
   # To update these, use "flutter update-packages --force-upgrade".
   collection: 1.14.11
   meta: 1.1.8
+  macros: 0.0.1
   typed_data: 1.1.6
   vector_math: 2.0.8
 
@@ -53,7 +53,7 @@ description: A dummy pubspec with no dependencies
 homepage: http://flutter.dev
 
 environment:
-  sdk: ">=2.2.2 <3.0.0"
+  sdk: '>=3.2.0-0 <4.0.0'
 ''';
 
 const String kInvalidGitPubspec = '''
@@ -62,7 +62,7 @@ description: A framework for writing Flutter applications
 homepage: http://flutter.dev
 
 environment:
-  sdk: ">=2.2.2 <3.0.0"
+  sdk: '>=3.2.0-0 <4.0.0'
 
 dependencies:
   # To update these, use "flutter update-packages --force-upgrade".
@@ -78,10 +78,24 @@ dependencies:
     git:
 ''';
 
+const String kVersionJson = '''
+{
+  "frameworkVersion": "1.2.3",
+  "channel": "[user-branch]",
+  "repositoryUrl": "git@github.com:flutter/flutter.git",
+  "frameworkRevision": "1234567812345678123456781234567812345678",
+  "frameworkCommitDate": "2024-02-06 22:26:52 +0100",
+  "engineRevision": "abcdef01abcdef01abcdef01abcdef01abcdef01",
+  "dartSdkVersion": "1.2.3",
+  "devToolsVersion": "1.2.3",
+  "flutterVersion": "1.2.3"
+}
+''';
+
 void main() {
-  FileSystem fileSystem;
-  Directory flutterSdk;
-  Directory flutter;
+  late FileSystem fileSystem;
+  late Directory flutterSdk;
+  late Directory flutter;
 
   setUp(() {
     fileSystem = MemoryFileSystem.test();
@@ -89,10 +103,22 @@ void main() {
     flutterSdk = fileSystem.directory('flutter')..createSync();
     // Create version file
     flutterSdk.childFile('version').writeAsStringSync('1.2.3');
+    // Create version JSON file
+    flutterSdk.childDirectory('bin').childDirectory('cache').childFile('flutter.version.json')
+      ..createSync(recursive: true)
+      ..writeAsStringSync(kVersionJson);
     // Create a pubspec file
     flutter = flutterSdk.childDirectory('packages').childDirectory('flutter')
       ..createSync(recursive: true);
     flutter.childFile('pubspec.yaml').writeAsStringSync(kFlutterPubspecYaml);
+  });
+
+  testWithoutContext('kManuallyPinnedDependencies pins are actually pins', () {
+    expect(
+      kManuallyPinnedDependencies.values,
+      isNot(contains(anyOf('any', startsWith('^'), startsWith('>'), startsWith('<')))),
+      reason: 'Version pins in kManuallyPinnedDependencies must be specific pins, not ranges.',
+    );
   });
 
   testWithoutContext(
@@ -123,6 +149,7 @@ void main() {
       fileSystem,
       flutterSdk,
       <PubspecYaml>[flutterPubspec],
+      fileSystem.systemTempDirectory,
     );
 
     expect(result, exists);
@@ -136,6 +163,7 @@ void main() {
     // The version file exists.
     expect(result.childFile('version'), exists);
     expect(result.childFile('version').readAsStringSync(), '1.2.3');
+    expect(fileSystem.file(fileSystem.path.join(result.path, 'bin', 'cache', 'flutter.version.json')), exists);
 
     // The sky_engine package exists
     expect(fileSystem.directory('${result.path}/bin/cache/pkg/sky_engine'), exists);
@@ -170,6 +198,7 @@ void main() {
         equals(<String>{
           'collection: 1.14.11',
           'meta: 1.1.8',
+          'macros: 0.0.1',
           'typed_data: 1.1.6',
           'vector_math: 2.0.8',
           'sky_engine: ',
@@ -185,12 +214,13 @@ void main() {
         equals(<String>{
           'collection: 1.14.11',
           'meta: 1.1.8',
+          'macros: 0.0.1',
           'typed_data: 1.1.6',
           'vector_math: 2.0.8',
           'sky_engine: ',
           'gallery: ',
           'flutter_test: ',
-          'flutter_goldens: '
+          'flutter_goldens: ',
         }));
     expect(
         pubspecYaml.dependencies
@@ -199,10 +229,32 @@ void main() {
         equals(<String>{
           'collection: 1.14.11',
           'meta: 1.1.8',
+          'macros: 0.0.1',
           'typed_data: 1.1.6',
           'vector_math: 2.0.8',
           'sky_engine: ',
-          'gallery: '
+          'gallery: ',
         }));
+  });
+
+  testWithoutContext('PubspecYaml apply skips explicitly excluded packages', () async {
+      final PubspecYaml flutterPubspec = PubspecYaml(flutter);
+      final PubDependencyTree flutterTree = PubDependencyTree();
+      final List<String> depsLines = <String>[
+        // Have to add these first so that flutterTree.fill ignores the one in
+        // the pubspec.
+        '- macros 0.0.1 [_macros]',
+        '- _macros 0.0.1',
+        for (final PubspecDependency dependency in flutterPubspec.allDependencies)
+          '- ${dependency.name} ${dependency.version}',
+      ];
+
+      final Set<String> dependencies = flutterPubspec.allDependencies.map<String>(
+        (PubspecDependency dep) => dep.name).toSet();
+      depsLines.add('- flutter 1.0.0 [${dependencies.join(' ')}}]');
+      depsLines.forEach(flutterTree.fill);
+      flutterPubspec.apply(flutterTree, <String>{});
+      final String contents = flutter.childFile('pubspec.yaml').readAsStringSync();
+      expect(contents, isNot(contains('_macros: 0.0.1')));
   });
 }

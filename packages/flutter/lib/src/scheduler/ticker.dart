@@ -2,11 +2,18 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+/// @docImport 'package:flutter/widgets.dart';
+library;
+
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
 import 'binding.dart';
+
+export 'dart:ui' show VoidCallback;
+
+export 'package:flutter/foundation.dart' show DiagnosticsNode;
 
 /// Signature for the callback passed to the [Ticker] class's constructor.
 ///
@@ -67,6 +74,15 @@ class Ticker {
       _debugCreationStack = StackTrace.current;
       return true;
     }());
+    // TODO(polina-c): stop duplicating code across disposables
+    // https://github.com/flutter/flutter/issues/137435
+    if (kFlutterMemoryAllocationsEnabled) {
+      FlutterMemoryAllocations.instance.dispatchObjectCreated(
+        library: 'package:flutter/scheduler.dart',
+        className: '$Ticker',
+        object: this,
+      );
+    }
   }
 
   TickerFuture? _future;
@@ -88,8 +104,9 @@ class Ticker {
   /// created the [Ticker] (typically a [TickerProvider]), not the object that
   /// listens to the ticker's ticks.
   set muted(bool value) {
-    if (value == muted)
+    if (value == muted) {
       return;
+    }
     _muted = value;
     if (value) {
       unscheduleTick();
@@ -109,14 +126,18 @@ class Ticker {
   /// that indicates the application is not currently visible (e.g. if the
   /// device's screen is turned off).
   bool get isTicking {
-    if (_future == null)
+    if (_future == null) {
       return false;
-    if (muted)
+    }
+    if (muted) {
       return false;
-    if (SchedulerBinding.instance.framesEnabled)
+    }
+    if (SchedulerBinding.instance.framesEnabled) {
       return true;
-    if (SchedulerBinding.instance.schedulerPhase != SchedulerPhase.idle)
-      return true; // for example, we might be in a warm-up frame or forced frame
+    }
+    if (SchedulerBinding.instance.schedulerPhase != SchedulerPhase.idle) {
+      return true;
+    } // for example, we might be in a warm-up frame or forced frame
     return false;
   }
 
@@ -162,8 +183,9 @@ class Ticker {
       scheduleTick();
     }
     if (SchedulerBinding.instance.schedulerPhase.index > SchedulerPhase.idle.index &&
-        SchedulerBinding.instance.schedulerPhase.index < SchedulerPhase.postFrameCallbacks.index)
+        SchedulerBinding.instance.schedulerPhase.index < SchedulerPhase.postFrameCallbacks.index) {
       _startTime = SchedulerBinding.instance.currentFrameTimeStamp;
+    }
     return _future!;
   }
 
@@ -189,8 +211,9 @@ class Ticker {
   /// By convention, this method is used by the object that receives the ticks
   /// (as opposed to the [TickerProvider] which created the ticker).
   void stop({ bool canceled = false }) {
-    if (!isActive)
+    if (!isActive) {
       return;
+    }
 
     // We take the _future into a local variable so that isTicking is false
     // when we actually complete the future (isTicking uses _future to
@@ -239,8 +262,9 @@ class Ticker {
 
     // The onTick callback may have scheduled another tick already, for
     // example by calling stop then start again.
-    if (shouldScheduleTick)
+    if (shouldScheduleTick) {
       scheduleTick(rescheduling: true);
+    }
   }
 
   /// Schedules a tick for the next frame.
@@ -286,8 +310,9 @@ class Ticker {
     if (originalTicker._future != null) {
       _future = originalTicker._future;
       _startTime = originalTicker._startTime;
-      if (shouldScheduleTick)
+      if (shouldScheduleTick) {
         scheduleTick();
+      }
       originalTicker._future = null; // so that it doesn't get disposed when we dispose of originalTicker
       originalTicker.unscheduleTick();
     }
@@ -306,6 +331,12 @@ class Ticker {
   ///    with a [TickerCanceled] error.
   @mustCallSuper
   void dispose() {
+    // TODO(polina-c): stop duplicating code across disposables
+    // https://github.com/flutter/flutter/issues/137435
+    if (kFlutterMemoryAllocationsEnabled) {
+      FlutterMemoryAllocations.instance.dispatchObjectDisposed(object: this);
+    }
+
     if (_future != null) {
       final TickerFuture localFuture = _future!;
       _future = null;
@@ -474,8 +505,9 @@ class TickerCanceled implements Exception {
 
   @override
   String toString() {
-    if (ticker != null)
+    if (ticker != null) {
       return 'This ticker was canceled: $ticker';
+    }
     return 'The ticker was canceled before the "orCancel" property was first used.';
   }
 }

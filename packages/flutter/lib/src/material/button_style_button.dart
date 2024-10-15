@@ -11,26 +11,63 @@ import 'package:flutter/widgets.dart';
 import 'button_style.dart';
 import 'colors.dart';
 import 'constants.dart';
+import 'elevated_button.dart';
+import 'filled_button.dart';
 import 'ink_well.dart';
 import 'material.dart';
 import 'material_state.dart';
-import 'material_state_mixin.dart';
+import 'outlined_button.dart';
+import 'text_button.dart';
 import 'theme_data.dart';
+
+/// {@template flutter.material.ButtonStyleButton.iconAlignment}
+/// Determines the alignment of the icon within the widgets such as:
+///   - [ElevatedButton.icon],
+///   - [FilledButton.icon],
+///   - [FilledButton.tonalIcon].
+///   - [OutlinedButton.icon],
+///   - [TextButton.icon],
+///
+/// The effect of `iconAlignment` depends on [TextDirection]. If textDirection is
+/// [TextDirection.ltr] then [IconAlignment.start] and [IconAlignment.end] align the
+/// icon on the left or right respectively.  If textDirection is [TextDirection.rtl] the
+/// the alignments are reversed.
+///
+/// Defaults to [IconAlignment.start].
+///
+/// {@tool dartpad}
+/// This sample demonstrates how to use `iconAlignment` to align the button icon to the start
+/// or the end of the button.
+///
+/// ** See code in examples/api/lib/material/button_style_button/button_style_button.icon_alignment.0.dart **
+/// {@end-tool}
+///
+/// {@endtemplate}
+enum IconAlignment {
+  /// The icon is placed at the start of the button.
+  start,
+
+  /// The icon is placed at the end of the button.
+  end,
+}
 
 /// The base [StatefulWidget] class for buttons whose style is defined by a [ButtonStyle] object.
 ///
 /// Concrete subclasses must override [defaultStyleOf] and [themeStyleOf].
 ///
 /// See also:
-///
-///  * [TextButton], a simple ButtonStyleButton without a shadow.
-///  * [ElevatedButton], a filled ButtonStyleButton whose material elevates when pressed.
-///  * [OutlinedButton], similar to [TextButton], but with an outline.
+///  * [ElevatedButton], a filled button whose material elevates when pressed.
+///  * [FilledButton], a filled button that doesn't elevate when pressed.
+///  * [FilledButton.tonal], a filled button variant that uses a secondary fill color.
+///  * [OutlinedButton], a button with an outlined border and no fill color.
+///  * [TextButton], a button with no outline or fill color.
+///  * <https://m3.material.io/components/buttons/overview>, an overview of each of
+///    the Material Design button types and how they should be used in designs.
 abstract class ButtonStyleButton extends StatefulWidget {
   /// Abstract const constructor. This constructor enables subclasses to provide
   /// const constructors so that they can be used in const expressions.
   const ButtonStyleButton({
-    Key? key,
+    super.key,
     required this.onPressed,
     required this.onLongPress,
     required this.onHover,
@@ -39,10 +76,11 @@ abstract class ButtonStyleButton extends StatefulWidget {
     required this.focusNode,
     required this.autofocus,
     required this.clipBehavior,
+    this.statesController,
+    this.isSemanticButton = true,
     required this.child,
-  }) : assert(autofocus != null),
-       assert(clipBehavior != null),
-       super(key: key);
+    this.iconAlignment = IconAlignment.start,
+  });
 
   /// Called when the button is tapped or otherwise activated.
   ///
@@ -87,8 +125,10 @@ abstract class ButtonStyleButton extends StatefulWidget {
 
   /// {@macro flutter.material.Material.clipBehavior}
   ///
-  /// Defaults to [Clip.none], and must not be null.
-  final Clip clipBehavior;
+  /// Defaults to [Clip.none] unless [ButtonStyle.backgroundBuilder] or
+  /// [ButtonStyle.foregroundBuilder] is specified. In those
+  /// cases the default is [Clip.antiAlias].
+  final Clip? clipBehavior;
 
   /// {@macro flutter.widgets.Focus.focusNode}
   final FocusNode? focusNode;
@@ -96,8 +136,25 @@ abstract class ButtonStyleButton extends StatefulWidget {
   /// {@macro flutter.widgets.Focus.autofocus}
   final bool autofocus;
 
+  /// {@macro flutter.material.inkwell.statesController}
+  final MaterialStatesController? statesController;
+
+  /// Determine whether this subtree represents a button.
+  ///
+  /// If this is null, the screen reader will not announce "button" when this
+  /// is focused. This is useful for [MenuItemButton] and [SubmenuButton] when we
+  /// traverse the menu system.
+  ///
+  /// Defaults to true.
+  final bool? isSemanticButton;
+
   /// Typically the button's label.
+  ///
+  /// {@macro flutter.widgets.ProxyWidget.child}
   final Widget? child;
+
+  /// {@macro flutter.material.ButtonStyleButton.iconAlignment}
+  final IconAlignment iconAlignment;
 
   /// Returns a non-null [ButtonStyle] that's based primarily on the [Theme]'s
   /// [ThemeData.textTheme] and [ThemeData.colorScheme].
@@ -149,38 +206,41 @@ abstract class ButtonStyleButton extends StatefulWidget {
     properties.add(DiagnosticsProperty<FocusNode>('focusNode', focusNode, defaultValue: null));
   }
 
-  /// Returns null if [value] is null, otherwise `MaterialStateProperty.all<T>(value)`.
+  /// Returns null if [value] is null, otherwise `MaterialStatePropertyAll<T>(value)`.
   ///
   /// A convenience method for subclasses.
-  static MaterialStateProperty<T>? allOrNull<T>(T? value) => value == null ? null : MaterialStateProperty.all<T>(value);
+  static MaterialStateProperty<T>? allOrNull<T>(T? value) => value == null ? null : MaterialStatePropertyAll<T>(value);
 
-  /// Returns an interpolated value based on the [textScaleFactor] parameter:
+  /// A convenience method used by subclasses in the framework, that returns an
+  /// interpolated value based on the [fontSizeMultiplier] parameter:
   ///
   ///  * 0 - 1 [geometry1x]
-  ///  * 1 - 2 lerp([geometry1x], [geometry2x], [textScaleFactor] - 1)
-  ///  * 2 - 3 lerp([geometry2x], [geometry3x], [textScaleFactor] - 2)
+  ///  * 1 - 2 lerp([geometry1x], [geometry2x], [fontSizeMultiplier] - 1)
+  ///  * 2 - 3 lerp([geometry2x], [geometry3x], [fontSizeMultiplier] - 2)
   ///  * otherwise [geometry3x]
   ///
-  /// A convenience method for subclasses.
+  /// This method is used by the framework for estimating the default paddings to
+  /// use on a button with a text label, when the system text scaling setting
+  /// changes. It's usually supplied with empirical [geometry1x], [geometry2x],
+  /// [geometry3x] values adjusted for different system text scaling values, when
+  /// the unscaled font size is set to 14.0 (the default [TextTheme.labelLarge]
+  /// value).
+  ///
+  /// The `fontSizeMultiplier` argument, for historical reasons, is the default
+  /// font size specified in the [ButtonStyle], scaled by the ambient font
+  /// scaler, then divided by 14.0 (the default font size used in buttons).
   static EdgeInsetsGeometry scaledPadding(
     EdgeInsetsGeometry geometry1x,
     EdgeInsetsGeometry geometry2x,
     EdgeInsetsGeometry geometry3x,
-    double textScaleFactor,
+    double fontSizeMultiplier,
   ) {
-    assert(geometry1x != null);
-    assert(geometry2x != null);
-    assert(geometry3x != null);
-    assert(textScaleFactor != null);
-
-    if (textScaleFactor <= 1) {
-      return geometry1x;
-    } else if (textScaleFactor >= 3) {
-      return geometry3x;
-    } else if (textScaleFactor <= 2) {
-      return EdgeInsetsGeometry.lerp(geometry1x, geometry2x, textScaleFactor - 1)!;
-    }
-    return EdgeInsetsGeometry.lerp(geometry2x, geometry3x, textScaleFactor - 2)!;
+    return switch (fontSizeMultiplier) {
+      <= 1 => geometry1x,
+      < 2  => EdgeInsetsGeometry.lerp(geometry1x, geometry2x, fontSizeMultiplier - 1)!,
+      < 3  => EdgeInsetsGeometry.lerp(geometry2x, geometry3x, fontSizeMultiplier - 2)!,
+      _    => geometry3x,
+    };
   }
 }
 
@@ -189,37 +249,63 @@ abstract class ButtonStyleButton extends StatefulWidget {
 /// See also:
 ///
 ///  * [ButtonStyleButton], the [StatefulWidget] subclass for which this class is the [State].
-///  * [TextButton], a simple button without a shadow.
 ///  * [ElevatedButton], a filled button whose material elevates when pressed.
+///  * [FilledButton], a filled ButtonStyleButton that doesn't elevate when pressed.
 ///  * [OutlinedButton], similar to [TextButton], but with an outline.
-class _ButtonStyleState extends State<ButtonStyleButton> with MaterialStateMixin, TickerProviderStateMixin {
-  AnimationController? _controller;
-  double? _elevation;
-  Color? _backgroundColor;
+///  * [TextButton], a simple button without a shadow.
+class _ButtonStyleState extends State<ButtonStyleButton> with TickerProviderStateMixin {
+  AnimationController? controller;
+  double? elevation;
+  Color? backgroundColor;
+  MaterialStatesController? internalStatesController;
+
+  void handleStatesControllerChange() {
+    // Force a rebuild to resolve MaterialStateProperty properties
+    setState(() { });
+  }
+
+  MaterialStatesController get statesController => widget.statesController ?? internalStatesController!;
+
+  void initStatesController() {
+    if (widget.statesController == null) {
+      internalStatesController = MaterialStatesController();
+    }
+    statesController.update(MaterialState.disabled, !widget.enabled);
+    statesController.addListener(handleStatesControllerChange);
+  }
 
   @override
   void initState() {
     super.initState();
-    setMaterialState(MaterialState.disabled, !widget.enabled);
-  }
-
-  @override
-  void dispose() {
-    _controller?.dispose();
-    super.dispose();
+    initStatesController();
   }
 
   @override
   void didUpdateWidget(ButtonStyleButton oldWidget) {
     super.didUpdateWidget(oldWidget);
-    setMaterialState(MaterialState.disabled, !widget.enabled);
-    // If the button is disabled while a press gesture is currently ongoing,
-    // InkWell makes a call to handleHighlightChanged. This causes an exception
-    // because it calls setState in the middle of a build. To preempt this, we
-    // manually update pressed to false when this situation occurs.
-    if (isDisabled && isPressed) {
-      removeMaterialState(MaterialState.pressed);
+    if (widget.statesController != oldWidget.statesController) {
+      oldWidget.statesController?.removeListener(handleStatesControllerChange);
+      if (widget.statesController != null) {
+        internalStatesController?.dispose();
+        internalStatesController = null;
+      }
+      initStatesController();
     }
+    if (widget.enabled != oldWidget.enabled) {
+      statesController.update(MaterialState.disabled, !widget.enabled);
+      if (!widget.enabled) {
+        // The button may have been disabled while a press gesture is currently underway.
+        statesController.update(MaterialState.pressed, false);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    statesController.removeListener(handleStatesControllerChange);
+    internalStatesController?.dispose();
+    controller?.dispose();
+    super.dispose();
   }
 
   @override
@@ -227,7 +313,6 @@ class _ButtonStyleState extends State<ButtonStyleButton> with MaterialStateMixin
     final ButtonStyle? widgetStyle = widget.style;
     final ButtonStyle? themeStyle = widget.themeStyleOf(context);
     final ButtonStyle defaultStyle = widget.defaultStyleOf(context);
-    assert(defaultStyle != null);
 
     T? effectiveValue<T>(T? Function(ButtonStyle? style) getProperty) {
       final T? widgetValue  = getProperty(widgetStyle);
@@ -238,7 +323,9 @@ class _ButtonStyleState extends State<ButtonStyleButton> with MaterialStateMixin
 
     T? resolve<T>(MaterialStateProperty<T>? Function(ButtonStyle? style) getProperty) {
       return effectiveValue(
-        (ButtonStyle? style) => getProperty(style)?.resolve(materialStates),
+        (ButtonStyle? style) {
+          return getProperty(style)?.resolve(statesController.value);
+        },
       );
     }
 
@@ -252,10 +339,12 @@ class _ButtonStyleState extends State<ButtonStyleButton> with MaterialStateMixin
     final Size? resolvedMinimumSize = resolve<Size?>((ButtonStyle? style) => style?.minimumSize);
     final Size? resolvedFixedSize = resolve<Size?>((ButtonStyle? style) => style?.fixedSize);
     final Size? resolvedMaximumSize = resolve<Size?>((ButtonStyle? style) => style?.maximumSize);
+    final Color? resolvedIconColor = resolve<Color?>((ButtonStyle? style) => style?.iconColor);
+    final double? resolvedIconSize = resolve<double?>((ButtonStyle? style) => style?.iconSize);
     final BorderSide? resolvedSide = resolve<BorderSide?>((ButtonStyle? style) => style?.side);
     final OutlinedBorder? resolvedShape = resolve<OutlinedBorder?>((ButtonStyle? style) => style?.shape);
 
-    final MaterialStateMouseCursor resolvedMouseCursor = _MouseCursor(
+    final MaterialStateMouseCursor mouseCursor = _MouseCursor(
       (Set<MaterialState> states) => effectiveValue((ButtonStyle? style) => style?.mouseCursor?.resolve(states)),
     );
 
@@ -270,6 +359,11 @@ class _ButtonStyleState extends State<ButtonStyleButton> with MaterialStateMixin
     final AlignmentGeometry? resolvedAlignment = effectiveValue((ButtonStyle? style) => style?.alignment);
     final Offset densityAdjustment = resolvedVisualDensity!.baseSizeAdjustment;
     final InteractiveInkFeatureFactory? resolvedSplashFactory = effectiveValue((ButtonStyle? style) => style?.splashFactory);
+    final ButtonLayerBuilder? resolvedBackgroundBuilder = effectiveValue((ButtonStyle? style) => style?.backgroundBuilder);
+    final ButtonLayerBuilder? resolvedForegroundBuilder = effectiveValue((ButtonStyle? style) => style?.foregroundBuilder);
+
+    final Clip effectiveClipBehavior = widget.clipBehavior
+      ?? ((resolvedBackgroundBuilder ?? resolvedForegroundBuilder) != null ? Clip.antiAlias : Clip.none);
 
     BoxConstraints effectiveConstraints = resolvedVisualDensity.effectiveConstraints(
       BoxConstraints(
@@ -310,16 +404,16 @@ class _ButtonStyleState extends State<ButtonStyleButton> with MaterialStateMixin
     // animates its elevation but not its color. SKIA renders non-zero
     // elevations as a shadow colored fill behind the Material's background.
     if (resolvedAnimationDuration! > Duration.zero
-        && _elevation != null
-        && _backgroundColor != null
-        && _elevation != resolvedElevation
-        && _backgroundColor!.value != resolvedBackgroundColor!.value
-        && _backgroundColor!.opacity == 1
+        && elevation != null
+        && backgroundColor != null
+        && elevation != resolvedElevation
+        && backgroundColor!.value != resolvedBackgroundColor!.value
+        && backgroundColor!.opacity == 1
         && resolvedBackgroundColor.opacity < 1
         && resolvedElevation == 0) {
-      if (_controller?.duration != resolvedAnimationDuration) {
-        _controller?.dispose();
-        _controller = AnimationController(
+      if (controller?.duration != resolvedAnimationDuration) {
+        controller?.dispose();
+        controller = AnimationController(
           duration: resolvedAnimationDuration,
           vsync: this,
         )
@@ -329,12 +423,27 @@ class _ButtonStyleState extends State<ButtonStyleButton> with MaterialStateMixin
           }
         });
       }
-      resolvedBackgroundColor = _backgroundColor; // Defer changing the background color.
-      _controller!.value = 0;
-      _controller!.forward();
+      resolvedBackgroundColor = backgroundColor; // Defer changing the background color.
+      controller!.value = 0;
+      controller!.forward();
     }
-    _elevation = resolvedElevation;
-    _backgroundColor = resolvedBackgroundColor;
+    elevation = resolvedElevation;
+    backgroundColor = resolvedBackgroundColor;
+
+    Widget effectiveChild = Padding(
+      padding: padding,
+      child: Align(
+        alignment: resolvedAlignment!,
+        widthFactor: 1.0,
+        heightFactor: 1.0,
+        child: resolvedForegroundBuilder != null
+          ? resolvedForegroundBuilder(context, statesController.value, widget.child)
+          : widget.child,
+      ),
+    );
+    if (resolvedBackgroundBuilder != null) {
+      effectiveChild = resolvedBackgroundBuilder(context, statesController.value, effectiveChild);
+    }
 
     final Widget result = ConstrainedBox(
       constraints: effectiveConstraints,
@@ -347,39 +456,25 @@ class _ButtonStyleState extends State<ButtonStyleButton> with MaterialStateMixin
         surfaceTintColor: resolvedSurfaceTintColor,
         type: resolvedBackgroundColor == null ? MaterialType.transparency : MaterialType.button,
         animationDuration: resolvedAnimationDuration,
-        clipBehavior: widget.clipBehavior,
+        clipBehavior: effectiveClipBehavior,
         child: InkWell(
           onTap: widget.onPressed,
           onLongPress: widget.onLongPress,
-          onHighlightChanged: updateMaterialState(MaterialState.pressed),
-          onHover: updateMaterialState(
-            MaterialState.hovered,
-            onChanged: widget.onHover,
-          ),
-          mouseCursor: resolvedMouseCursor,
+          onHover: widget.onHover,
+          mouseCursor: mouseCursor,
           enableFeedback: resolvedEnableFeedback,
           focusNode: widget.focusNode,
           canRequestFocus: widget.enabled,
-          onFocusChange: updateMaterialState(
-            MaterialState.focused,
-            onChanged: widget.onFocusChange,
-          ),
+          onFocusChange: widget.onFocusChange,
           autofocus: widget.autofocus,
           splashFactory: resolvedSplashFactory,
           overlayColor: overlayColor,
           highlightColor: Colors.transparent,
-          customBorder: resolvedShape,
+          customBorder: resolvedShape.copyWith(side: resolvedSide),
+          statesController: statesController,
           child: IconTheme.merge(
-            data: IconThemeData(color: resolvedForegroundColor),
-            child: Padding(
-              padding: padding,
-              child: Align(
-                alignment: resolvedAlignment!,
-                widthFactor: 1.0,
-                heightFactor: 1.0,
-                child: widget.child,
-              ),
-            ),
+            data: IconThemeData(color: resolvedIconColor ?? resolvedForegroundColor, size: resolvedIconSize),
+            child: effectiveChild,
           ),
         ),
       ),
@@ -394,15 +489,13 @@ class _ButtonStyleState extends State<ButtonStyleButton> with MaterialStateMixin
         );
         assert(minSize.width >= 0.0);
         assert(minSize.height >= 0.0);
-        break;
       case MaterialTapTargetSize.shrinkWrap:
         minSize = Size.zero;
-        break;
     }
 
     return Semantics(
       container: true,
-      button: true,
+      button: widget.isSemanticButton,
       enabled: widget.enabled,
       child: _InputPadding(
         minSize: minSize,
@@ -431,10 +524,9 @@ class _MouseCursor extends MaterialStateMouseCursor {
 /// "tap target", but not its material or its ink splashes.
 class _InputPadding extends SingleChildRenderObjectWidget {
   const _InputPadding({
-    Key? key,
-    Widget? child,
+    super.child,
     required this.minSize,
-  }) : super(key: key, child: child);
+  });
 
   final Size minSize;
 
@@ -455,37 +547,42 @@ class _RenderInputPadding extends RenderShiftedBox {
   Size get minSize => _minSize;
   Size _minSize;
   set minSize(Size value) {
-    if (_minSize == value)
+    if (_minSize == value) {
       return;
+    }
     _minSize = value;
     markNeedsLayout();
   }
 
   @override
   double computeMinIntrinsicWidth(double height) {
-    if (child != null)
+    if (child != null) {
       return math.max(child!.getMinIntrinsicWidth(height), minSize.width);
+    }
     return 0.0;
   }
 
   @override
   double computeMinIntrinsicHeight(double width) {
-    if (child != null)
+    if (child != null) {
       return math.max(child!.getMinIntrinsicHeight(width), minSize.height);
+    }
     return 0.0;
   }
 
   @override
   double computeMaxIntrinsicWidth(double height) {
-    if (child != null)
+    if (child != null) {
       return math.max(child!.getMaxIntrinsicWidth(height), minSize.width);
+    }
     return 0.0;
   }
 
   @override
   double computeMaxIntrinsicHeight(double width) {
-    if (child != null)
+    if (child != null) {
       return math.max(child!.getMaxIntrinsicHeight(width), minSize.height);
+    }
     return 0.0;
   }
 
@@ -505,6 +602,20 @@ class _RenderInputPadding extends RenderShiftedBox {
       constraints: constraints,
       layoutChild: ChildLayoutHelper.dryLayoutChild,
     );
+  }
+
+  @override
+  double? computeDryBaseline(covariant BoxConstraints constraints, TextBaseline baseline) {
+    final RenderBox? child = this.child;
+    if (child == null) {
+      return null;
+    }
+    final double? result = child.getDryBaseline(constraints, baseline);
+    if (result == null) {
+      return null;
+    }
+    final Size childSize = child.getDryLayout(constraints);
+    return result + Alignment.center.alongOffset(getDryLayout(constraints) - childSize as Offset).dy;
   }
 
   @override

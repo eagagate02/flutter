@@ -4,7 +4,6 @@
 
 import 'dart:async';
 
-
 import '../base/common.dart';
 import '../base/file_system.dart';
 import '../base/logger.dart';
@@ -14,7 +13,6 @@ import 'analyze_base.dart';
 class AnalyzeOnce extends AnalyzeBase {
   AnalyzeOnce(
     super.argResults,
-    List<String> repoRoots,
     List<Directory> repoPackages, {
     required super.fileSystem,
     required super.logger,
@@ -22,9 +20,9 @@ class AnalyzeOnce extends AnalyzeBase {
     required super.processManager,
     required super.terminal,
     required super.artifacts,
+    required super.suppressAnalytics,
     this.workingDirectory,
   }) : super(
-        repoRoots: repoRoots,
         repoPackages: repoPackages,
       );
 
@@ -35,25 +33,13 @@ class AnalyzeOnce extends AnalyzeBase {
   Future<void> analyze() async {
     final String currentDirectory =
         (workingDirectory ?? fileSystem.currentDirectory).path;
-
-    // find directories or files from argResults.rest
-    final Set<String> items = Set<String>.of(argResults.rest
-        .map<String>((String path) => fileSystem.path.canonicalize(path)));
-    if (items.isNotEmpty) {
-      for (final String item in items) {
-        final FileSystemEntityType type = fileSystem.typeSync(item);
-
-        if (type == FileSystemEntityType.notFound) {
-          throwToolExit("'$item' does not exist");
-        }
-      }
-    }
+    final Set<String> items = findDirectories(argResults, fileSystem);
 
     if (isFlutterRepo) {
       // check for conflicting dependencies
       final PackageDependencyTracker dependencies = PackageDependencyTracker();
       dependencies.checkForConflictingDependencies(repoPackages, dependencies);
-      items.addAll(repoRoots);
+      items.add(flutterRoot);
       if (argResults.wasParsed('current-package') && (argResults['current-package'] as bool)) {
         items.add(currentDirectory);
       }
@@ -79,6 +65,7 @@ class AnalyzeOnce extends AnalyzeBase {
       processManager: processManager,
       terminal: terminal,
       protocolTrafficLog: protocolTrafficLog,
+      suppressAnalytics: suppressAnalytics,
     );
 
     Stopwatch? timer;
@@ -179,8 +166,7 @@ class AnalyzeOnce extends AnalyzeBase {
       if (severityLevel == AnalysisSeverity.error) {
         return true;
       }
-      if (severityLevel == AnalysisSeverity.warning &&
-        (argResults['fatal-warnings'] as bool || argResults['fatal-infos'] as bool)) {
+      if (severityLevel == AnalysisSeverity.warning && argResults['fatal-warnings'] as bool) {
         return true;
       }
       if (severityLevel == AnalysisSeverity.info && argResults['fatal-infos'] as bool) {

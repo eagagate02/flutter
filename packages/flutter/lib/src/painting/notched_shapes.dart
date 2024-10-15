@@ -2,6 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+/// @docImport 'package:flutter/material.dart';
+library;
+
 import 'dart:math' as math;
 
 import 'basic_types.dart';
@@ -56,8 +59,9 @@ class CircularNotchedRectangle extends NotchedShape {
   // TODO(amirh): add an example diagram here.
   @override
   Path getOuterPath(Rect host, Rect? guest) {
-    if (guest == null || !host.overlaps(guest))
+    if (guest == null || !host.overlaps(guest)) {
       return Path()..addRect(host);
+    }
 
     // The guest's shape is a circle bounded by the guest rectangle.
     // So the guest's radius is half the guest width.
@@ -99,8 +103,9 @@ class CircularNotchedRectangle extends NotchedShape {
     p[5] = Offset(-1.0 * p[0]!.dx, p[0]!.dy);
 
     // translate all points back to the absolute coordinate system.
-    for (int i = 0; i < p.length; i += 1)
+    for (int i = 0; i < p.length; i += 1) {
       p[i] = p[i]! + guest.center;
+    }
 
     return Path()
       ..moveTo(host.left, host.top)
@@ -127,8 +132,6 @@ class CircularNotchedRectangle extends NotchedShape {
 /// for a [FloatingActionButton]).
 class AutomaticNotchedShape extends NotchedShape {
   /// Creates a [NotchedShape] that is defined by two [ShapeBorder]s.
-  ///
-  /// The [host] must not be null.
   ///
   /// The [guest] may be null, in which case no notch is created even
   /// if a guest rectangle is provided to [getOuterPath].

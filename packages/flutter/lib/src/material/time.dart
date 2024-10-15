@@ -64,7 +64,7 @@ class TimeOfDay {
   ///
   /// The [hour] is set to the current hour and the [minute] is set to the
   /// current minute in the local time zone.
-  factory TimeOfDay.now() { return TimeOfDay.fromDateTime(DateTime.now()); }
+  TimeOfDay.now() : this.fromDateTime(DateTime.now());
 
   /// The number of hours in one day, i.e. 24.
   static const int hoursPerDay = 24;
@@ -108,7 +108,7 @@ class TimeOfDay {
     final MaterialLocalizations localizations = MaterialLocalizations.of(context);
     return localizations.formatTimeOfDay(
       this,
-      alwaysUse24HourFormat: MediaQuery.of(context).alwaysUse24HourFormat,
+      alwaysUse24HourFormat: MediaQuery.alwaysUse24HourFormatOf(context),
     );
   }
 
@@ -124,14 +124,15 @@ class TimeOfDay {
 
   @override
   String toString() {
-    String _addLeadingZeroIfNeeded(int value) {
-      if (value < 10)
+    String addLeadingZeroIfNeeded(int value) {
+      if (value < 10) {
         return '0$value';
+      }
       return value.toString();
     }
 
-    final String hourLabel = _addLeadingZeroIfNeeded(hour);
-    final String minuteLabel = _addLeadingZeroIfNeeded(minute);
+    final String hourLabel = addLeadingZeroIfNeeded(hour);
+    final String minuteLabel = addLeadingZeroIfNeeded(minute);
 
     return '$TimeOfDay($hourLabel:$minuteLabel)';
   }

@@ -262,7 +262,8 @@ void main() {
     expect(tester.getTopLeft(find.text('Tile 1')), const Offset(0, -475));
   });
 
-  testWidgets('PageView restoration', (WidgetTester tester) async {
+  testWidgets('PageView restoration',
+  (WidgetTester tester) async {
     await tester.pumpWidget(
       TestHarness(
         child: PageView(
@@ -544,7 +545,7 @@ Future<void> restoreScrollAndVerify(WidgetTester tester, {double secondOffset = 
 }
 
 class TestHarness extends StatelessWidget {
-  const TestHarness({Key? key, required this.child, this.height = 100}) : super(key: key);
+  const TestHarness({super.key, required this.child, this.height = 100});
 
   final Widget child;
   final double height;

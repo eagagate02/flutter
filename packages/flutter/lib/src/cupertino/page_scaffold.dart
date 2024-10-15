@@ -2,6 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+/// @docImport 'button.dart';
+/// @docImport 'nav_bar.dart';
+/// @docImport 'tab_scaffold.dart';
+/// @docImport 'route.dart';
+library;
+
 import 'package:flutter/widgets.dart';
 
 import 'colors.dart';
@@ -34,14 +40,12 @@ import 'theme.dart';
 class CupertinoPageScaffold extends StatefulWidget {
   /// Creates a layout for pages with a navigation bar at the top.
   const CupertinoPageScaffold({
-    Key? key,
+    super.key,
     this.navigationBar,
     this.backgroundColor,
     this.resizeToAvoidBottomInset = true,
     required this.child,
-  }) : assert(child != null),
-       assert(resizeToAvoidBottomInset != null),
-       super(key: key);
+  });
 
   /// The [navigationBar], typically a [CupertinoNavigationBar], is drawn at the
   /// top of the screen.
@@ -52,13 +56,9 @@ class CupertinoPageScaffold extends StatefulWidget {
   /// The scaffold assumes the navigation bar will account for the [MediaQuery]
   /// top padding, also consume it if the navigation bar is opaque.
   ///
-  /// By default `navigationBar` has its text scale factor set to 1.0 and does
-  /// not respond to text scale factor changes from the operating system, to match
-  /// the native iOS behavior. To override such behavior, wrap each of the `navigationBar`'s
-  /// components inside a [MediaQuery] with the desired [MediaQueryData.textScaleFactor]
-  /// value. The text scale factor value from the operating system can be retrieved
-  /// in many ways, such as querying [MediaQuery.textScaleFactorOf] against
-  /// [CupertinoApp]'s [BuildContext].
+  /// By default [navigationBar] disables text scaling to match the native iOS
+  /// behavior. To override such behavior, wrap each of the [navigationBar]'s
+  /// components inside a [MediaQuery] with the desired [TextScaler].
   // TODO(xster): document its page transition animation when ready
   final ObstructingPreferredSizeWidget? navigationBar;
 
@@ -81,7 +81,7 @@ class CupertinoPageScaffold extends StatefulWidget {
   /// scaffold, the body can be resized to avoid overlapping the keyboard, which
   /// prevents widgets inside the body from being obscured by the keyboard.
   ///
-  /// Defaults to true and cannot be null.
+  /// Defaults to true.
   final bool resizeToAvoidBottomInset;
 
   @override
@@ -91,7 +91,7 @@ class CupertinoPageScaffold extends StatefulWidget {
 class _CupertinoPageScaffoldState extends State<CupertinoPageScaffold> {
 
   void _handleStatusBarTap() {
-    final ScrollController? primaryScrollController = PrimaryScrollController.of(context);
+    final ScrollController? primaryScrollController = PrimaryScrollController.maybeOf(context);
     // Only act on the scroll controller if it has any attached scroll positions.
     if (primaryScrollController != null && primaryScrollController.hasClients) {
       primaryScrollController.animateTo(
@@ -157,15 +157,17 @@ class _CupertinoPageScaffoldState extends State<CupertinoPageScaffold> {
           ),
         );
       }
-    } else {
+    } else if (widget.resizeToAvoidBottomInset) {
       // If there is no navigation bar, still may need to add padding in order
       // to support resizeToAvoidBottomInset.
-      final double bottomPadding = widget.resizeToAvoidBottomInset
-          ? existingMediaQuery.viewInsets.bottom
-          : 0.0;
-      paddedContent = Padding(
-        padding: EdgeInsets.only(bottom: bottomPadding),
-        child: paddedContent,
+      paddedContent = MediaQuery(
+        data: existingMediaQuery.copyWith(
+          viewInsets: existingMediaQuery.viewInsets.copyWith(bottom: 0)
+        ),
+        child: Padding(
+          padding: EdgeInsets.only(bottom: existingMediaQuery.viewInsets.bottom),
+          child: paddedContent,
+        ),
       );
     }
 
@@ -183,8 +185,7 @@ class _CupertinoPageScaffoldState extends State<CupertinoPageScaffold> {
               top: 0.0,
               left: 0.0,
               right: 0.0,
-              child: MediaQuery(
-                data: existingMediaQuery.copyWith(textScaleFactor: 1),
+              child: MediaQuery.withNoTextScaling(
                 child: widget.navigationBar!,
               ),
             ),

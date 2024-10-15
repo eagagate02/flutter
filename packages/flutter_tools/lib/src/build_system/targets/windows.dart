@@ -26,24 +26,13 @@ const List<String> _kWindowsArtifacts = <String>[
   'flutter_windows.h',
 ];
 
-const List<String> _kWindowsUwpArtifacts = <String>[
-  'flutter_windows_winuwp.dll',
-  'flutter_windows_winuwp.dll.exp',
-  'flutter_windows_winuwp.dll.lib',
-  'flutter_windows_winuwp.dll.pdb',
-  'flutter_export.h',
-  'flutter_messenger.h',
-  'flutter_plugin_registrar.h',
-  'flutter_texture_registrar.h',
-  'flutter_windows.h',
-];
-
 const String _kWindowsDepfile = 'windows_engine_sources.d';
-const String _kWindowsUwpDepfile = 'windows_uwp_engine_sources.d';
 
 /// Copies the Windows desktop embedding files to the copy directory.
 class UnpackWindows extends Target {
-  const UnpackWindows();
+  const UnpackWindows(this.targetPlatform);
+
+  final TargetPlatform targetPlatform;
 
   @override
   String get name => 'unpack_windows';
@@ -68,17 +57,17 @@ class UnpackWindows extends Target {
     if (buildModeEnvironment == null) {
       throw MissingDefineException(kBuildMode, name);
     }
-    final BuildMode buildMode = getBuildModeForName(buildModeEnvironment);
+    final BuildMode buildMode = BuildMode.fromCliName(buildModeEnvironment);
     final String engineSourcePath = environment.artifacts
       .getArtifactPath(
         Artifact.windowsDesktopPath,
-        platform: TargetPlatform.windows_x64,
+        platform: targetPlatform,
         mode: buildMode,
       );
     final String clientSourcePath = environment.artifacts
       .getArtifactPath(
         Artifact.windowsCppClientWrapper,
-        platform: TargetPlatform.windows_x64,
+        platform: targetPlatform,
         mode: buildMode,
       );
     final Directory outputDirectory = environment.fileSystem.directory(
@@ -97,106 +86,26 @@ class UnpackWindows extends Target {
       clientSourcePaths: <String>[clientSourcePath],
       icuDataPath: environment.artifacts.getArtifactPath(
         Artifact.icuData,
-        platform: TargetPlatform.windows_x64
+        platform: targetPlatform,
       )
     );
-    final DepfileService depfileService = DepfileService(
-      fileSystem: environment.fileSystem,
-      logger: environment.logger,
-    );
-    depfileService.writeToFile(
+    environment.depFileService.writeToFile(
       depfile,
       environment.buildDir.childFile(_kWindowsDepfile),
     );
   }
 }
 
-
-/// Copies the Windows desktop embedding files to the copy directory.
-class UnpackWindowsUwp extends Target {
-  const UnpackWindowsUwp();
-
-  @override
-  String get name => 'unpack_windows_uwp';
-
-  @override
-  List<Source> get inputs => const <Source>[
-    Source.pattern('{FLUTTER_ROOT}/packages/flutter_tools/lib/src/build_system/targets/windows.dart'),
-  ];
-
-  @override
-  List<Source> get outputs => const <Source>[];
-
-  @override
-  List<String> get depfiles => const <String>[_kWindowsUwpDepfile];
-
-  @override
-  List<Target> get dependencies => const <Target>[];
-
-  @override
-  Future<void> build(Environment environment) async {
-    final String? buildModeEnvironment = environment.defines[kBuildMode];
-    if (buildModeEnvironment == null) {
-      throw MissingDefineException(kBuildMode, name);
-    }
-    final BuildMode buildMode = getBuildModeForName(buildModeEnvironment);
-    final String engineSourcePath = environment.artifacts
-      .getArtifactPath(
-        Artifact.windowsUwpDesktopPath,
-        platform: TargetPlatform.windows_x64,
-        mode: buildMode,
-      );
-    final String clientSourcePath = environment.artifacts
-      .getArtifactPath(
-        Artifact.windowsUwpCppClientWrapper,
-        platform: TargetPlatform.windows_x64,
-        mode: buildMode,
-      );
-    final Directory outputDirectory = environment.fileSystem.directory(
-      environment.fileSystem.path.join(
-        environment.projectDir.path,
-        'winuwp',
-        'flutter',
-        'ephemeral',
-      ),
-    );
-    final Depfile depfile = unpackDesktopArtifacts(
-      fileSystem: environment.fileSystem,
-      artifacts: _kWindowsUwpArtifacts,
-      engineSourcePath: engineSourcePath,
-      outputDirectory: outputDirectory,
-      clientSourcePaths: <String>[clientSourcePath],
-      icuDataPath: environment.artifacts.getArtifactPath(
-        Artifact.icuData,
-        platform: TargetPlatform.windows_x64
-      )
-    );
-    // Copy flutter_windows.h into flutter directory as well.
-    final File flutterWindows = outputDirectory.childFile('flutter_windows.h');
-    final File flutterWindowsDest = flutterWindows.parent.parent.childFile('flutter_windows.h');
-    flutterWindows.copySync(flutterWindowsDest.path);
-    depfile.outputs.add(flutterWindowsDest);
-    //
-
-    final DepfileService depfileService = DepfileService(
-      fileSystem: environment.fileSystem,
-      logger: environment.logger,
-    );
-    depfileService.writeToFile(
-      depfile,
-      environment.buildDir.childFile(_kWindowsUwpDepfile),
-    );
-  }
-}
-
 /// Creates a bundle for the Windows desktop target.
 abstract class BundleWindowsAssets extends Target {
-  const BundleWindowsAssets();
+  const BundleWindowsAssets(this.targetPlatform);
+
+  final TargetPlatform targetPlatform;
 
   @override
-  List<Target> get dependencies => const <Target>[
-    KernelSnapshot(),
-    UnpackWindows(),
+  List<Target> get dependencies => <Target>[
+    const KernelSnapshot(),
+    UnpackWindows(targetPlatform),
   ];
 
   @override
@@ -217,7 +126,7 @@ abstract class BundleWindowsAssets extends Target {
     if (buildModeEnvironment == null) {
       throw MissingDefineException(kBuildMode, 'bundle_windows_assets');
     }
-    final BuildMode buildMode = getBuildModeForName(buildModeEnvironment);
+    final BuildMode buildMode = BuildMode.fromCliName(buildModeEnvironment);
     final Directory outputDirectory = environment.outputDir
       .childDirectory('flutter_assets');
     if (!outputDirectory.existsSync()) {
@@ -232,44 +141,26 @@ abstract class BundleWindowsAssets extends Target {
     final Depfile depfile = await copyAssets(
       environment,
       outputDirectory,
-      targetPlatform: TargetPlatform.windows_x64,
+      targetPlatform: targetPlatform,
+      buildMode: buildMode,
     );
-    final DepfileService depfileService = DepfileService(
-      fileSystem: environment.fileSystem,
-      logger: environment.logger,
-    );
-    depfileService.writeToFile(
+    environment.depFileService.writeToFile(
       depfile,
       environment.buildDir.childFile('flutter_assets.d'),
     );
   }
 }
 
-
-/// Creates a bundle for the Windows desktop target.
-abstract class BundleWindowsAssetsUwp extends BundleWindowsAssets {
-  const BundleWindowsAssetsUwp();
-
-  @override
-  List<Target> get dependencies => const <Target>[
-    KernelSnapshot(),
-    UnpackWindowsUwp(),
-  ];
-}
-
 /// A wrapper for AOT compilation that copies app.so into the output directory.
 class WindowsAotBundle extends Target {
   /// Create a [WindowsAotBundle] wrapper for [aotTarget].
-  const WindowsAotBundle(this.aotTarget, {required this.uwp});
+  const WindowsAotBundle(this.aotTarget);
 
   /// The [AotElfBase] subclass that produces the app.so.
   final AotElfBase aotTarget;
 
-  /// Whether this is the UWP target.
-  final bool uwp;
-
   @override
-  String get name => uwp ? 'windows_uwp_aot_bundle' : 'windows_aot_bundle';
+  String get name => 'windows_aot_bundle';
 
   @override
   List<Source> get inputs => const <Source>[
@@ -277,10 +168,7 @@ class WindowsAotBundle extends Target {
   ];
 
   @override
-  List<Source> get outputs => uwp ?
-    const <Source>[
-      Source.pattern('{OUTPUT_DIR}/winuwp/app.so'),
-    ] :
+  List<Source> get outputs =>
     const <Source>[
       Source.pattern('{OUTPUT_DIR}/windows/app.so'),
     ];
@@ -293,44 +181,7 @@ class WindowsAotBundle extends Target {
   @override
   Future<void> build(Environment environment) async {
     final File outputFile = environment.buildDir.childFile('app.so');
-    final Directory outputDirectory = environment.outputDir.childDirectory(uwp ? 'winuwp' : 'windows');
-    if (!outputDirectory.existsSync()) {
-      outputDirectory.createSync(recursive: true);
-    }
-    outputFile.copySync(outputDirectory.childFile('app.so').path);
-  }
-}
-
-/// A wrapper for AOT compilation that copies app.so into the output directory.
-class WindowsUwpAotBundle extends Target {
-  /// Create a [WindowsAotBundle] wrapper for [aotTarget].
-  const WindowsUwpAotBundle(this.aotTarget);
-
-  /// The [AotElfBase] subclass that produces the app.so.
-  final AotElfBase aotTarget;
-
-  @override
-  String get name => 'windows_uwp_aot_bundle';
-
-  @override
-  List<Source> get inputs => const <Source>[
-    Source.pattern('{BUILD_DIR}/app.so'),
-  ];
-
-  @override
-  List<Source> get outputs => const <Source>[
-    Source.pattern('{OUTPUT_DIR}/winuwp/app.so'),
-  ];
-
-  @override
-  List<Target> get dependencies => <Target>[
-    aotTarget,
-  ];
-
-  @override
-  Future<void> build(Environment environment) async {
-    final File outputFile = environment.buildDir.childFile('app.so');
-    final Directory outputDirectory = environment.outputDir.childDirectory('winuwp');
+    final Directory outputDirectory = environment.outputDir.childDirectory('windows');
     if (!outputDirectory.existsSync()) {
       outputDirectory.createSync(recursive: true);
     }
@@ -339,10 +190,10 @@ class WindowsUwpAotBundle extends Target {
 }
 
 class ReleaseBundleWindowsAssets extends BundleWindowsAssets {
-  const ReleaseBundleWindowsAssets();
+  const ReleaseBundleWindowsAssets(super.targetPlatform);
 
   @override
-  String get name => 'release_bundle_windows_assets';
+  String get name => 'release_bundle_${getNameForTargetPlatform(targetPlatform)}_assets';
 
   @override
   List<Source> get outputs => const <Source>[];
@@ -350,15 +201,15 @@ class ReleaseBundleWindowsAssets extends BundleWindowsAssets {
   @override
   List<Target> get dependencies => <Target>[
     ...super.dependencies,
-    const WindowsAotBundle(AotElfRelease(TargetPlatform.windows_x64), uwp: false),
+    WindowsAotBundle(AotElfRelease(targetPlatform)),
   ];
 }
 
 class ProfileBundleWindowsAssets extends BundleWindowsAssets {
-  const ProfileBundleWindowsAssets();
+  const ProfileBundleWindowsAssets(super.targetPlatform);
 
   @override
-  String get name => 'profile_bundle_windows_assets';
+  String get name => 'profile_bundle_${getNameForTargetPlatform(targetPlatform)}_assets';
 
   @override
   List<Source> get outputs => const <Source>[];
@@ -366,64 +217,15 @@ class ProfileBundleWindowsAssets extends BundleWindowsAssets {
   @override
   List<Target> get dependencies => <Target>[
     ...super.dependencies,
-    const WindowsAotBundle(AotElfProfile(TargetPlatform.windows_x64), uwp: false),
+    WindowsAotBundle(AotElfProfile(targetPlatform)),
   ];
 }
 
 class DebugBundleWindowsAssets extends BundleWindowsAssets {
-  const DebugBundleWindowsAssets();
+  const DebugBundleWindowsAssets(super.targetPlatform);
 
   @override
-  String get name => 'debug_bundle_windows_assets';
-
-  @override
-  List<Source> get inputs => <Source>[
-    const Source.pattern('{BUILD_DIR}/app.dill'),
-  ];
-
-  @override
-  List<Source> get outputs => <Source>[
-    const Source.pattern('{OUTPUT_DIR}/flutter_assets/kernel_blob.bin'),
-  ];
-}
-
-class ReleaseBundleWindowsAssetsUwp extends BundleWindowsAssetsUwp {
-  const ReleaseBundleWindowsAssetsUwp();
-
-  @override
-  String get name => 'release_bundle_windows_assets_uwp';
-
-  @override
-  List<Source> get outputs => const <Source>[];
-
-  @override
-  List<Target> get dependencies => <Target>[
-    ...super.dependencies,
-    const WindowsAotBundle(AotElfRelease(TargetPlatform.windows_uwp_x64), uwp: true),
-  ];
-}
-
-class ProfileBundleWindowsAssetsUwp extends BundleWindowsAssetsUwp {
-  const ProfileBundleWindowsAssetsUwp();
-
-  @override
-  String get name => 'profile_bundle_windows_assets_uwp';
-
-  @override
-  List<Source> get outputs => const <Source>[];
-
-  @override
-  List<Target> get dependencies => <Target>[
-    ...super.dependencies,
-    const WindowsAotBundle(AotElfProfile(TargetPlatform.windows_uwp_x64), uwp: true),
-  ];
-}
-
-class DebugBundleWindowsAssetsUwp extends BundleWindowsAssetsUwp {
-  const DebugBundleWindowsAssetsUwp();
-
-  @override
-  String get name => 'debug_bundle_windows_assets_uwp';
+  String get name => 'debug_bundle_${getNameForTargetPlatform(targetPlatform)}_assets';
 
   @override
   List<Source> get inputs => <Source>[

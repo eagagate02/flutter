@@ -2,6 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+/// @docImport 'rounded_rectangle_border.dart';
+library;
+
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
@@ -33,13 +36,11 @@ import 'edge_insets.dart';
 ///    radius in a step function instead of gradually like the
 ///    [ContinuousRectangleBorder].
 class ContinuousRectangleBorder extends OutlinedBorder {
-  /// The arguments must not be null.
+  /// Creates a [ContinuousRectangleBorder].
   const ContinuousRectangleBorder({
-    BorderSide side = BorderSide.none,
+    super.side,
     this.borderRadius = BorderRadius.zero,
-  }) : assert(side != null),
-       assert(borderRadius != null),
-       super(side: side);
+  });
 
   /// The radius for each corner.
   ///
@@ -60,7 +61,6 @@ class ContinuousRectangleBorder extends OutlinedBorder {
 
   @override
   ShapeBorder? lerpFrom(ShapeBorder? a, double t) {
-    assert(t != null);
     if (a is ContinuousRectangleBorder) {
       return ContinuousRectangleBorder(
         side: BorderSide.lerp(a.side, side, t),
@@ -72,7 +72,6 @@ class ContinuousRectangleBorder extends OutlinedBorder {
 
   @override
   ShapeBorder? lerpTo(ShapeBorder? b, double t) {
-    assert(t != null);
     if (b is ContinuousRectangleBorder) {
       return ContinuousRectangleBorder(
         side: BorderSide.lerp(side, b.side, t),
@@ -142,23 +141,25 @@ class ContinuousRectangleBorder extends OutlinedBorder {
 
   @override
   void paint(Canvas canvas, Rect rect, { TextDirection? textDirection }) {
-    if (rect.isEmpty)
+    if (rect.isEmpty) {
       return;
+    }
     switch (side.style) {
       case BorderStyle.none:
         break;
       case BorderStyle.solid:
-        final Path path = getOuterPath(rect, textDirection: textDirection);
-        final Paint paint = side.toPaint();
-        canvas.drawPath(path, paint);
-        break;
+        canvas.drawPath(
+          getOuterPath(rect, textDirection: textDirection),
+          side.toPaint(),
+        );
     }
   }
 
   @override
   bool operator ==(Object other) {
-    if (other.runtimeType != runtimeType)
+    if (other.runtimeType != runtimeType) {
       return false;
+    }
     return other is ContinuousRectangleBorder
         && other.side == side
         && other.borderRadius == borderRadius;

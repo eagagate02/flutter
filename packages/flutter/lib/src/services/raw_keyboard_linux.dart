@@ -2,13 +2,22 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+/// @docImport 'hardware_keyboard.dart';
+library;
+
 import 'package:flutter/foundation.dart';
 
-import 'keyboard_key.dart';
-import 'keyboard_maps.dart';
+import 'keyboard_maps.g.dart';
 import 'raw_keyboard.dart';
 
+export 'package:flutter/foundation.dart' show DiagnosticPropertiesBuilder;
+
+export 'keyboard_key.g.dart' show LogicalKeyboardKey, PhysicalKeyboardKey;
+
 /// Platform-specific key event data for Linux.
+///
+/// This class is deprecated and will be removed. Platform specific key event
+/// data will no longer be available. See [KeyEvent] for what is available.
 ///
 /// Different window toolkit implementations can map to different key codes. This class
 /// will use the correct mapping depending on the [keyHelper] provided.
@@ -16,11 +25,16 @@ import 'raw_keyboard.dart';
 /// See also:
 ///
 ///  * [RawKeyboard], which uses this interface to expose key data.
+@Deprecated(
+  'Platform specific key event data is no longer available. See KeyEvent for what is available. '
+  'This feature was deprecated after v3.18.0-2.0.pre.',
+)
 class RawKeyEventDataLinux extends RawKeyEventData {
   /// Creates a key event data structure specific for Linux.
-  ///
-  /// The [keyHelper], [scanCode], [unicodeScalarValues], [keyCode], and [modifiers],
-  /// arguments must not be null.
+  @Deprecated(
+    'Platform specific key event data is no longer available. See KeyEvent for what is available. '
+    'This feature was deprecated after v3.18.0-2.0.pre.',
+  )
   const RawKeyEventDataLinux({
     required this.keyHelper,
     this.unicodeScalarValues = 0,
@@ -28,12 +42,8 @@ class RawKeyEventDataLinux extends RawKeyEventData {
     this.keyCode = 0,
     this.modifiers = 0,
     required this.isDown,
-  }) : assert(scanCode != null),
-       assert(unicodeScalarValues != null),
-       assert((unicodeScalarValues & ~LogicalKeyboardKey.valueMask) == 0),
-       assert(keyCode != null),
-       assert(modifiers != null),
-       assert(keyHelper != null);
+    this.specifiedLogicalKey,
+  }) : assert((unicodeScalarValues & ~LogicalKeyboardKey.valueMask) == 0);
 
   /// A helper class that abstracts the fetching of the toolkit-specific mappings.
   ///
@@ -68,6 +78,15 @@ class RawKeyEventDataLinux extends RawKeyEventData {
   /// Whether or not this key event is a key down (true) or key up (false).
   final bool isDown;
 
+  /// A logical key specified by the embedding that should be used instead of
+  /// deriving from raw data.
+  ///
+  /// The GTK embedding detects the keyboard layout and maps some keys to
+  /// logical keys in a way that can not be derived from per-key information.
+  ///
+  /// This is not part of the native GTK key event.
+  final int? specifiedLogicalKey;
+
   @override
   String get keyLabel => unicodeScalarValues == 0 ? '' : String.fromCharCode(unicodeScalarValues);
 
@@ -76,6 +95,10 @@ class RawKeyEventDataLinux extends RawKeyEventData {
 
   @override
   LogicalKeyboardKey get logicalKey {
+    if (specifiedLogicalKey != null) {
+      final int key = specifiedLogicalKey!;
+      return LogicalKeyboardKey.findKeyByKeyId(key) ?? LogicalKeyboardKey(key);
+    }
     // Look to see if the keyCode is a printable number pad key, so that a
     // difference between regular keys (e.g. "=") and the number pad version
     // (e.g. the "=" on the number pad) can be determined.
@@ -124,14 +147,17 @@ class RawKeyEventDataLinux extends RawKeyEventData {
     properties.add(DiagnosticsProperty<int>('keyCode', keyCode));
     properties.add(DiagnosticsProperty<int>('modifiers', modifiers));
     properties.add(DiagnosticsProperty<bool>('isDown', isDown));
+    properties.add(DiagnosticsProperty<int?>('specifiedLogicalKey', specifiedLogicalKey, defaultValue: null));
   }
 
   @override
   bool operator==(Object other) {
-    if (identical(this, other))
+    if (identical(this, other)) {
       return true;
-    if (other.runtimeType != runtimeType)
+    }
+    if (other.runtimeType != runtimeType) {
       return false;
+    }
     return other is RawKeyEventDataLinux
         && other.keyHelper.runtimeType == keyHelper.runtimeType
         && other.unicodeScalarValues == unicodeScalarValues
@@ -157,8 +183,19 @@ class RawKeyEventDataLinux extends RawKeyEventData {
 /// Given that there might be multiple window toolkit implementations (GLFW,
 /// GTK, QT, etc), this creates a common interface for each of the
 /// different toolkits.
+///
+/// This class is deprecated and will be removed. Platform specific key event
+/// data will no longer be available. See [KeyEvent] for what is available.
+@Deprecated(
+  'No longer supported. '
+  'This feature was deprecated after v3.18.0-2.0.pre.',
+)
 abstract class KeyHelper {
   /// Create a KeyHelper implementation depending on the given toolkit.
+  @Deprecated(
+    'No longer supported. '
+    'This feature was deprecated after v3.18.0-2.0.pre.',
+  )
   factory KeyHelper(String toolkit) {
     if (toolkit == 'glfw') {
       return GLFWKeyHelper();
@@ -176,10 +213,18 @@ abstract class KeyHelper {
 
   /// Returns a [KeyboardSide] enum value that describes which side or sides of
   /// the given keyboard modifier key were pressed at the time of this event.
+  @Deprecated(
+    'No longer supported. '
+    'This feature was deprecated after v3.18.0-2.0.pre.',
+  )
   KeyboardSide getModifierSide(ModifierKey key);
 
   /// Returns true if the given [ModifierKey] was pressed at the time of this
   /// event.
+  @Deprecated(
+    'No longer supported. '
+    'This feature was deprecated after v3.18.0-2.0.pre.',
+  )
   bool isModifierPressed(ModifierKey key, int modifiers, {KeyboardSide side = KeyboardSide.any, required int keyCode, required bool isDown});
 
   /// The numpad key from the specific key code mapping.
@@ -193,6 +238,13 @@ abstract class KeyHelper {
 }
 
 /// Helper class that uses GLFW-specific key mappings.
+///
+/// This class is deprecated and will be removed. Platform specific key event
+/// data will no longer be available. See [KeyEvent] for what is available.
+@Deprecated(
+  'No longer supported. '
+  'This feature was deprecated after v3.18.0-2.0.pre.',
+)
 class GLFWKeyHelper implements KeyHelper {
   /// This mask is used to check the [RawKeyEventDataLinux.modifiers] field to
   /// test whether the CAPS LOCK modifier key is on.
@@ -258,33 +310,15 @@ class GLFWKeyHelper implements KeyHelper {
     // a key down, then we need to add the correct modifier bits, and if it's a
     // key up, we need to remove them.
 
-    int modifierChange = 0;
-    switch (keyCode) {
-      case shiftLeftKeyCode:
-      case shiftRightKeyCode:
-        modifierChange = modifierShift;
-        break;
-      case controlLeftKeyCode:
-      case controlRightKeyCode:
-        modifierChange = modifierControl;
-        break;
-      case altLeftKeyCode:
-      case altRightKeyCode:
-        modifierChange = modifierAlt;
-        break;
-      case metaLeftKeyCode:
-      case metaRightKeyCode:
-        modifierChange = modifierMeta;
-        break;
-      case capsLockKeyCode:
-        modifierChange = modifierCapsLock;
-        break;
-      case numLockKeyCode:
-        modifierChange = modifierNumericPad;
-        break;
-      default:
-        break;
-    }
+    final int modifierChange = switch (keyCode) {
+      shiftLeftKeyCode   || shiftRightKeyCode   => modifierShift,
+      controlLeftKeyCode || controlRightKeyCode => modifierControl,
+      altLeftKeyCode     || altRightKeyCode     => modifierAlt,
+      metaLeftKeyCode    || metaRightKeyCode    => modifierMeta,
+      capsLockKeyCode => modifierCapsLock,
+      numLockKeyCode  => modifierNumericPad,
+      _ => 0,
+    };
 
     return isDown ? modifiers | modifierChange : modifiers & ~modifierChange;
   }
@@ -292,25 +326,18 @@ class GLFWKeyHelper implements KeyHelper {
   @override
   bool isModifierPressed(ModifierKey key, int modifiers, {KeyboardSide side = KeyboardSide.any, required int keyCode, required bool isDown}) {
     modifiers = _mergeModifiers(modifiers: modifiers, keyCode: keyCode, isDown: isDown);
-    switch (key) {
-      case ModifierKey.controlModifier:
-        return modifiers & modifierControl != 0;
-      case ModifierKey.shiftModifier:
-        return modifiers & modifierShift != 0;
-      case ModifierKey.altModifier:
-        return modifiers & modifierAlt != 0;
-      case ModifierKey.metaModifier:
-        return modifiers & modifierMeta != 0;
-      case ModifierKey.capsLockModifier:
-        return modifiers & modifierCapsLock != 0;
-      case ModifierKey.numLockModifier:
-        return modifiers & modifierNumericPad != 0;
-      case ModifierKey.functionModifier:
-      case ModifierKey.symbolModifier:
-      case ModifierKey.scrollLockModifier:
-        // These are not used in GLFW keyboards.
-        return false;
-    }
+    return switch (key) {
+      ModifierKey.controlModifier  => modifiers & modifierControl != 0,
+      ModifierKey.shiftModifier    => modifiers & modifierShift != 0,
+      ModifierKey.altModifier      => modifiers & modifierAlt != 0,
+      ModifierKey.metaModifier     => modifiers & modifierMeta != 0,
+      ModifierKey.capsLockModifier => modifiers & modifierCapsLock != 0,
+      ModifierKey.numLockModifier  => modifiers & modifierNumericPad != 0,
+      // These are not used in GLFW keyboards.
+      ModifierKey.functionModifier   => false,
+      ModifierKey.symbolModifier     => false,
+      ModifierKey.scrollLockModifier => false,
+    };
   }
 
   @override
@@ -336,6 +363,13 @@ class GLFWKeyHelper implements KeyHelper {
 }
 
 /// Helper class that uses GTK-specific key mappings.
+///
+/// This class is deprecated and will be removed. Platform specific key event
+/// data will no longer be available. See [KeyEvent] for what is available.
+@Deprecated(
+  'No longer supported. '
+  'This feature was deprecated after v3.18.0-2.0.pre.',
+)
 class GtkKeyHelper implements KeyHelper {
   /// This mask is used to check the [RawKeyEventDataLinux.modifiers] field to
   /// test whether one of the SHIFT modifier keys is pressed.
@@ -401,34 +435,15 @@ class GtkKeyHelper implements KeyHelper {
     // a key down, then we need to add the correct modifier bits, and if it's a
     // key up, we need to remove them.
 
-    int modifierChange = 0;
-    switch (keyCode) {
-      case shiftLeftKeyCode:
-      case shiftRightKeyCode:
-        modifierChange = modifierShift;
-        break;
-      case controlLeftKeyCode:
-      case controlRightKeyCode:
-        modifierChange = modifierControl;
-        break;
-      case altLeftKeyCode:
-      case altRightKeyCode:
-        modifierChange = modifierMod1;
-        break;
-      case metaLeftKeyCode:
-      case metaRightKeyCode:
-        modifierChange = modifierMeta;
-        break;
-      case capsLockKeyCode:
-      case shiftLockKeyCode:
-        modifierChange = modifierCapsLock;
-        break;
-      case numLockKeyCode:
-        modifierChange = modifierMod2;
-        break;
-      default:
-        break;
-    }
+    final int modifierChange = switch (keyCode) {
+      shiftLeftKeyCode   || shiftRightKeyCode   => modifierShift,
+      controlLeftKeyCode || controlRightKeyCode => modifierControl,
+      altLeftKeyCode     || altRightKeyCode     => modifierMod1,
+      metaLeftKeyCode    || metaRightKeyCode    => modifierMeta,
+      capsLockKeyCode    || shiftLockKeyCode    => modifierCapsLock,
+      numLockKeyCode => modifierMod2,
+      _ => 0,
+    };
 
     return isDown ? modifiers | modifierChange : modifiers & ~modifierChange;
   }
@@ -436,25 +451,18 @@ class GtkKeyHelper implements KeyHelper {
   @override
   bool isModifierPressed(ModifierKey key, int modifiers, {KeyboardSide side = KeyboardSide.any, required int keyCode, required bool isDown}) {
     modifiers = _mergeModifiers(modifiers: modifiers, keyCode: keyCode, isDown: isDown);
-    switch (key) {
-      case ModifierKey.controlModifier:
-        return modifiers & modifierControl != 0;
-      case ModifierKey.shiftModifier:
-        return modifiers & modifierShift != 0;
-      case ModifierKey.altModifier:
-        return modifiers & modifierMod1 != 0;
-      case ModifierKey.metaModifier:
-        return modifiers & modifierMeta != 0;
-      case ModifierKey.capsLockModifier:
-        return modifiers & modifierCapsLock != 0;
-      case ModifierKey.numLockModifier:
-        return modifiers & modifierMod2 != 0;
-      case ModifierKey.functionModifier:
-      case ModifierKey.symbolModifier:
-      case ModifierKey.scrollLockModifier:
-        // These are not used in GTK keyboards.
-        return false;
-    }
+    return switch (key) {
+      ModifierKey.controlModifier  => modifiers & modifierControl != 0,
+      ModifierKey.shiftModifier    => modifiers & modifierShift != 0,
+      ModifierKey.altModifier      => modifiers & modifierMod1 != 0,
+      ModifierKey.metaModifier     => modifiers & modifierMeta != 0,
+      ModifierKey.capsLockModifier => modifiers & modifierCapsLock != 0,
+      ModifierKey.numLockModifier  => modifiers & modifierMod2 != 0,
+      // These are not used in GTK keyboards.
+      ModifierKey.functionModifier   => false,
+      ModifierKey.symbolModifier     => false,
+      ModifierKey.scrollLockModifier => false,
+    };
   }
 
   @override

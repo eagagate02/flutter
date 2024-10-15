@@ -54,13 +54,13 @@ class _PlaceholderPainter extends CustomPainter {
 class Placeholder extends StatelessWidget {
   /// Creates a widget which draws a box.
   const Placeholder({
-    Key? key,
+    super.key,
     this.color = const Color(0xFF455A64), // Blue Grey 700
     this.strokeWidth = 2.0,
     this.fallbackWidth = 400.0,
     this.fallbackHeight = 400.0,
     this.child
-  }) : super(key: key);
+  });
 
   /// The color to draw the placeholder box.
   final Color color;
@@ -111,6 +111,5 @@ class Placeholder extends StatelessWidget {
     properties.add(DoubleProperty('strokeWidth', strokeWidth, defaultValue: 2.0));
     properties.add(DoubleProperty('fallbackWidth', fallbackWidth, defaultValue: 400.0));
     properties.add(DoubleProperty('fallbackHeight', fallbackHeight, defaultValue: 400.0));
-    properties.add(DiagnosticsProperty<Widget>('child', child, defaultValue: null));
   }
 }

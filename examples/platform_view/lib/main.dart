@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 import 'dart:async';
-import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -47,6 +47,17 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
+  static Widget get _buttonText {
+    return switch (defaultTargetPlatform) {
+      TargetPlatform.android => const Text('Continue in Android view'),
+      TargetPlatform.iOS     => const Text('Continue in iOS view'),
+      TargetPlatform.windows => const Text('Continue in Windows view'),
+      TargetPlatform.macOS   => const Text('Continue in macOS view'),
+      TargetPlatform.linux   => const Text('Continue in Linux view'),
+      TargetPlatform.fuchsia => throw UnimplementedError('Platform not yet implemented'),
+    };
+  }
+
   Future<void> _launchPlatformCount() async {
     final int? platformCounter =
         await _methodChannel.invokeMethod('switchView', _counter);
@@ -76,9 +87,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       padding: const EdgeInsets.all(18.0),
                       child: ElevatedButton(
                         onPressed: _launchPlatformCount,
-                        child: Platform.isIOS
-                          ? const Text('Continue in iOS view')
-                          : const Text('Continue in Android view'),
+                        child: _buttonText,
                       ),
                     ),
                   ],

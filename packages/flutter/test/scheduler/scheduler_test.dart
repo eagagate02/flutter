@@ -14,6 +14,21 @@ import 'scheduler_tester.dart';
 class TestSchedulerBinding extends BindingBase with SchedulerBinding, ServicesBinding {
   final Map<String, List<Map<String, dynamic>>> eventsDispatched = <String, List<Map<String, dynamic>>>{};
 
+  VoidCallback? additionalHandleBeginFrame;
+  VoidCallback? additionalHandleDrawFrame;
+
+  @override
+  void handleBeginFrame(Duration? rawTimeStamp) {
+    additionalHandleBeginFrame?.call();
+    super.handleBeginFrame(rawTimeStamp);
+  }
+
+  @override
+  void handleDrawFrame() {
+    additionalHandleDrawFrame?.call();
+    super.handleDrawFrame();
+  }
+
   @override
   void postEvent(String eventKind, Map<String, dynamic> eventData) {
     getEventsDispatched(eventKind).add(eventData);
@@ -39,6 +54,11 @@ void main() {
     scheduler = TestSchedulerBinding();
   });
 
+  tearDown(() {
+    scheduler.additionalHandleBeginFrame = null;
+    scheduler.additionalHandleDrawFrame = null;
+  });
+
   test('Tasks are executed in the right order', () {
     final TestStrategy strategy = TestStrategy();
     scheduler.schedulingStrategy = strategy.shouldRunTaskWithPriority;
@@ -52,20 +72,23 @@ void main() {
     input.forEach(scheduleAddingTask);
 
     strategy.allowedPriority = 100;
-    for (int i = 0; i < 3; i += 1)
-      expect(scheduler.handleEventLoopCallback(), isFalse);
+    for (int i = 0; i < 3; i += 1) {
+      expect(scheduler.handleEventLoopCallback(), isTrue);
+    }
     expect(executedTasks.isEmpty, isTrue);
 
     strategy.allowedPriority = 50;
-    for (int i = 0; i < 3; i += 1)
-      expect(scheduler.handleEventLoopCallback(), i == 0 ? isTrue : isFalse);
+    for (int i = 0; i < 3; i += 1) {
+      expect(scheduler.handleEventLoopCallback(), isTrue);
+    }
     expect(executedTasks, hasLength(1));
     expect(executedTasks.single, equals(80));
     executedTasks.clear();
 
     strategy.allowedPriority = 20;
-    for (int i = 0; i < 3; i += 1)
-      expect(scheduler.handleEventLoopCallback(), i < 2 ? isTrue : isFalse);
+    for (int i = 0; i < 3; i += 1) {
+      expect(scheduler.handleEventLoopCallback(), isTrue);
+    }
     expect(executedTasks, hasLength(2));
     expect(executedTasks[0], equals(23));
     expect(executedTasks[1], equals(23));
@@ -75,24 +98,27 @@ void main() {
     scheduleAddingTask(19);
     scheduleAddingTask(5);
     scheduleAddingTask(97);
-    for (int i = 0; i < 3; i += 1)
-      expect(scheduler.handleEventLoopCallback(), i < 2 ? isTrue : isFalse);
+    for (int i = 0; i < 3; i += 1) {
+      expect(scheduler.handleEventLoopCallback(), isTrue);
+    }
     expect(executedTasks, hasLength(2));
     expect(executedTasks[0], equals(99));
     expect(executedTasks[1], equals(97));
     executedTasks.clear();
 
     strategy.allowedPriority = 10;
-    for (int i = 0; i < 3; i += 1)
-      expect(scheduler.handleEventLoopCallback(), i < 2 ? isTrue : isFalse);
+    for (int i = 0; i < 3; i += 1) {
+      expect(scheduler.handleEventLoopCallback(), isTrue);
+    }
     expect(executedTasks, hasLength(2));
     expect(executedTasks[0], equals(19));
     expect(executedTasks[1], equals(11));
     executedTasks.clear();
 
     strategy.allowedPriority = 1;
-    for (int i = 0; i < 4; i += 1)
-      expect(scheduler.handleEventLoopCallback(), i < 3 ? isTrue : isFalse);
+    for (int i = 0; i < 4; i += 1) {
+      expect(scheduler.handleEventLoopCallback(), isTrue);
+    }
     expect(executedTasks, hasLength(3));
     expect(executedTasks[0], equals(5));
     expect(executedTasks[1], equals(3));
@@ -103,6 +129,25 @@ void main() {
     expect(scheduler.handleEventLoopCallback(), isFalse);
     expect(executedTasks, hasLength(1));
     expect(executedTasks[0], equals(0));
+  });
+
+  test('scheduleWarmUpFrame should flush microtasks between callbacks', () async {
+    addTearDown(() => scheduler.handleEventLoopCallback());
+
+    bool microtaskDone = false;
+    final Completer<void> drawFrameDone = Completer<void>();
+    scheduler.additionalHandleBeginFrame = () {
+      expect(microtaskDone, false);
+      scheduleMicrotask(() {
+        microtaskDone = true;
+      });
+    };
+    scheduler.additionalHandleDrawFrame = () {
+      expect(microtaskDone, true);
+      drawFrameDone.complete();
+    };
+    scheduler.scheduleWarmUpFrame();
+    await drawFrameDone.future;
   });
 
   test('2 calls to scheduleWarmUpFrame just schedules it once', () {
@@ -140,15 +185,17 @@ void main() {
   });
 
   test('Flutter.Frame event fired', () async {
-    SchedulerBinding.instance.platformDispatcher.onReportTimings!(<FrameTiming>[FrameTiming(
-      vsyncStart: 5000,
-      buildStart: 10000,
-      buildFinish: 15000,
-      rasterStart: 16000,
-      rasterFinish: 20000,
-      rasterFinishWallTime: 20010,
-      frameNumber: 1991
-    )]);
+    SchedulerBinding.instance.platformDispatcher.onReportTimings!(<FrameTiming>[
+      FrameTiming(
+        vsyncStart: 5000,
+        buildStart: 10000,
+        buildFinish: 15000,
+        rasterStart: 16000,
+        rasterFinish: 20000,
+        rasterFinishWallTime: 20010,
+        frameNumber: 1991,
+      ),
+    ]);
 
     final List<Map<String, dynamic>> events = scheduler.getEventsDispatched('Flutter.Frame');
     expect(events, hasLength(1));
@@ -207,6 +254,8 @@ void main() {
     tick(const Duration(seconds: 8));
     expect(lastTimeStamp, const Duration(seconds: 3)); // 2s + (8 - 6)s / 2
     expect(lastSystemTimeStamp, const Duration(seconds: 8));
+
+    timeDilation = 1.0; // restore time dilation, or it will affect other tests
   });
 
   test('Animation frame scheduled in the middle of the warm-up frame', () {
@@ -241,6 +290,31 @@ void main() {
     // callback that reschedules the engine frame.
     warmUpDrawFrame();
     expect(scheduler.hasScheduledFrame, isTrue);
+  });
+
+  test('Can schedule futures to completion', () async {
+    bool isCompleted = false;
+
+    // `Future` is disallowed in this file due to the import of
+    // scheduler_tester.dart so annotations cannot be specified.
+    // ignore: always_specify_types
+    final result = scheduler.scheduleTask(
+      () async {
+        // Yield, so if awaiting `result` did not wait for completion of this
+        // task, the assertion on `isCompleted` will fail.
+        await null;
+        await null;
+
+        isCompleted = true;
+        return 1;
+      },
+      Priority.idle,
+    );
+
+    scheduler.handleEventLoopCallback();
+    await result;
+
+    expect(isCompleted, true);
   });
 }
 

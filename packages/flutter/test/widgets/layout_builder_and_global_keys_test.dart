@@ -8,9 +8,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 class Wrapper extends StatelessWidget {
   const Wrapper({
-    Key? key,
+    super.key,
     required this.child,
-  }) : super(key: key);
+  });
 
   final Widget child;
 
@@ -20,9 +20,9 @@ class Wrapper extends StatelessWidget {
 
 class StatefulWrapper extends StatefulWidget {
   const StatefulWrapper({
-    Key? key,
+    super.key,
     required this.child,
-  }) : super(key: key);
+  });
 
   final Widget child;
 
@@ -58,6 +58,45 @@ void main() {
     );
 
     expect(tester.takeException(), null);
+  });
+
+  testWidgets('Moving GlobalKeys out of LayoutBuilder', (WidgetTester tester) async {
+    // Regression test for https://github.com/flutter/flutter/issues/146379.
+    final GlobalKey widgetKey = GlobalKey(debugLabel: 'widget key');
+    final Widget widgetWithKey = Builder(builder: (BuildContext context) {
+      Directionality.of(context);
+      return SizedBox(key: widgetKey);
+    });
+
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: Row(
+          children: <Widget>[
+            LayoutBuilder(
+              builder: (BuildContext context, BoxConstraints constraints) => widgetWithKey,
+            ),
+          ],
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.rtl,
+        child: Row(
+          children: <Widget>[
+            LayoutBuilder(
+              builder: (BuildContext context, BoxConstraints constraints) => const Placeholder(),
+            ),
+            widgetWithKey,
+          ],
+        ),
+      ),
+    );
+
+    expect(tester.takeException(), null);
+    expect(find.byKey(widgetKey), findsOneWidget);
   });
 
   testWidgets('Moving global key inside a SliverLayoutBuilder', (WidgetTester tester) async {

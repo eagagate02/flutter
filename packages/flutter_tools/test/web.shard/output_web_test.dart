@@ -2,12 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// @dart = 2.8
-
 import 'package:file/file.dart';
 import 'package:flutter_tools/src/base/file_system.dart';
 import 'package:vm_service/vm_service.dart';
-import 'package:vm_service/vm_service_io.dart';
 
 import '../integration.shard/test_data/basic_project.dart';
 import '../integration.shard/test_driver.dart';
@@ -15,15 +12,14 @@ import '../integration.shard/test_utils.dart';
 import '../src/common.dart';
 
 void main() {
-  Directory tempDir;
+  late Directory tempDir;
   final BasicProjectWithUnaryMain project = BasicProjectWithUnaryMain();
-  FlutterRunTestDriver flutter;
+  late FlutterRunTestDriver flutter;
 
   setUp(() async {
     tempDir = createResolvedTempDirectorySync('run_test.');
     await project.setUpIn(tempDir);
     flutter = FlutterRunTestDriver(tempDir);
-    //flutter.stdout.listen(print);
   });
 
   tearDown(() async {
@@ -37,7 +33,6 @@ void main() {
       await flutter.run(
         withDebugger: true,
         chrome: true,
-        expressionEvaluation: true,
         additionalCommandArgs: <String>[
           if (verbose) '--verbose',
           '--web-renderer=html',
@@ -51,17 +46,6 @@ void main() {
       .having((InstanceRef o) => o.kind, 'kind', 'Bool'));
   }
 
-  Future<void> sendEvent(Map<String, Object> event) async {
-    final VmService client = await vmServiceConnectUri(
-      '${flutter.vmServiceWsUri}');
-    final Response result = await client.callServiceExtension(
-      'ext.dwds.sendEvent',
-      args: event,
-    );
-    expect(result, isA<Success>());
-    await client.dispose();
-  }
-
   testWithoutContext('flutter run outputs info messages from dwds in verbose mode', () async {
     final Future<dynamic> info = expectLater(
       flutter.stdout, emitsThrough(contains('Loaded debug metadata')));
@@ -70,6 +54,7 @@ void main() {
     await flutter.stop();
     await info;
   });
+<<<<<<< HEAD
 
   testWithoutContext('flutter run outputs warning messages from dwds in non-verbose mode', () async {
     final Future<dynamic> warning = expectLater(
@@ -92,4 +77,6 @@ void main() {
     expect(containsDartUriWarning, isFalse);
     // TODO(elliette): Enable for DWDS >13.1.0, https://github.com/flutter/flutter/issues/101639
   }, skip: true); // [intended] enable for DWDS >13.1.0
+=======
+>>>>>>> 2663184aa79047d0a33a14a3b607954f8fdd8730
 }

@@ -9,9 +9,9 @@ import 'test_widgets.dart';
 
 class StatefulWrapper extends StatefulWidget {
   const StatefulWrapper({
-    Key? key,
+    super.key,
     required this.child,
-  }) : super(key: key);
+  });
 
   final Widget child;
 
@@ -36,9 +36,9 @@ class StatefulWrapperState extends State<StatefulWrapper> {
 
 class Wrapper extends StatelessWidget {
   const Wrapper({
-    Key? key,
+    super.key,
     required this.child,
-  }) : super(key: key);
+  });
 
   final Widget child;
 
@@ -50,7 +50,6 @@ class Wrapper extends StatelessWidget {
 
 void main() {
   testWidgets('Calling setState on a widget that moves into a LayoutBuilder in the same frame', (WidgetTester tester) async {
-    StatefulWrapperState statefulWrapper;
     final Widget inner = Wrapper(
       child: StatefulWrapper(
         key: GlobalKey(),
@@ -63,7 +62,7 @@ void main() {
       }),
       right: inner,
     ));
-    statefulWrapper = tester.state(find.byType(StatefulWrapper));
+    final StatefulWrapperState statefulWrapper = tester.state(find.byType(StatefulWrapper));
     expect(statefulWrapper.built, true);
     statefulWrapper.built = false;
 

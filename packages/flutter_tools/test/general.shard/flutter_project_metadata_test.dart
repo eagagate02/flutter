@@ -5,10 +5,13 @@
 import 'package:file/memory.dart';
 import 'package:flutter_tools/src/base/file_system.dart';
 import 'package:flutter_tools/src/base/logger.dart';
+import 'package:flutter_tools/src/features.dart';
 import 'package:flutter_tools/src/flutter_project_metadata.dart';
 import 'package:flutter_tools/src/project.dart';
 
 import '../src/common.dart';
+import '../src/context.dart';
+import '../src/fakes.dart';
 
 void main() {
   late FileSystem fileSystem;
@@ -48,6 +51,21 @@ void main() {
     expect(projectMetadata.versionRevision, isNull);
 
     expect(logger.traceText, contains('.metadata file at .metadata was empty or malformed.'));
+  });
+
+  testWithoutContext('projectType is populated when version is null', () {
+    metadataFile
+      ..createSync()
+      ..writeAsStringSync('''
+version:
+project_type: plugin
+      ''');
+    final FlutterProjectMetadata projectMetadata = FlutterProjectMetadata(metadataFile, logger);
+    expect(projectMetadata.projectType, FlutterProjectType.plugin);
+    expect(projectMetadata.versionChannel, isNull);
+    expect(projectMetadata.versionRevision, isNull);
+
+    expect(logger.traceText, contains('The value of key `version` in .metadata was expected to be YamlMap but was Null'));
   });
 
   testWithoutContext('projectType is populated when version is malformed', () {
@@ -129,7 +147,7 @@ migration:
     expect(projectMetadata.projectType, FlutterProjectType.app);
     expect(projectMetadata.migrateConfig.platformConfigs[SupportedPlatform.root]?.createRevision, 'abcdefg');
     expect(projectMetadata.migrateConfig.platformConfigs[SupportedPlatform.root]?.baseRevision, 'baserevision');
-    // Tool uses default unamanged files list when malformed.
+    // Tool uses default unmanaged files list when malformed.
     expect(projectMetadata.migrateConfig.unmanagedFiles[0], 'lib/main.dart');
 
     expect(logger.traceText, contains('The value of key `unmanaged_files` in .metadata was expected to be YamlList but was YamlMap'));
@@ -168,5 +186,17 @@ migration:
     expect(projectMetadata.migrateConfig.unmanagedFiles[0], 'file1');
 
     expect(logger.traceText, contains('The key `create_revision` was not found'));
+  });
+
+  testUsingContext('enabledValues does not contain packageFfi if native-assets not enabled', () {
+    expect(FlutterProjectType.enabledValues, isNot(contains(FlutterProjectType.packageFfi)));
+    expect(FlutterProjectType.enabledValues, contains(FlutterProjectType.plugin));
+  });
+
+  testUsingContext('enabledValues contains packageFfi if natives-assets enabled', () {
+    expect(FlutterProjectType.enabledValues, contains(FlutterProjectType.packageFfi));
+    expect(FlutterProjectType.enabledValues, contains(FlutterProjectType.plugin));
+  }, overrides: <Type, Generator>{
+    FeatureFlags: () => TestFeatureFlags(isNativeAssetsEnabled: true),
   });
 }

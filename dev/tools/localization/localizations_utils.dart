@@ -51,7 +51,7 @@ class LocaleInfo implements Comparable<LocaleInfo> {
       scriptCode = codes[1].length > codes[2].length ? codes[1] : codes[2];
       countryCode = codes[1].length < codes[2].length ? codes[1] : codes[2];
     }
-    assert(codes[0] != null && codes[0].isNotEmpty);
+    assert(codes[0].isNotEmpty);
     assert(countryCode == null || countryCode.isNotEmpty);
     assert(scriptCode == null || scriptCode.isNotEmpty);
 
@@ -62,41 +62,24 @@ class LocaleInfo implements Comparable<LocaleInfo> {
     /// across various countries. For example, we know Taiwan uses traditional (Hant)
     /// script, so it is safe to apply (Hant) to Taiwanese languages.
     if (deriveScriptCode && scriptCode == null) {
-      switch (languageCode) {
-        case 'zh': {
-          if (countryCode == null) {
-            scriptCode = 'Hans';
-          }
-          switch (countryCode) {
-            case 'CN':
-            case 'SG':
-              scriptCode = 'Hans';
-              break;
-            case 'TW':
-            case 'HK':
-            case 'MO':
-              scriptCode = 'Hant';
-              break;
-          }
-          break;
-        }
-        case 'sr': {
-          if (countryCode == null) {
-            scriptCode = 'Cyrl';
-          }
-          break;
-        }
-      }
+      scriptCode = switch ((languageCode, countryCode)) {
+        ('zh', 'CN' || 'SG' || null) => 'Hans',
+        ('zh', 'TW' || 'HK' || 'MO') => 'Hant',
+        ('sr', null) => 'Cyrl',
+        _ => null,
+      };
       // Increment length if we were able to assume a scriptCode.
       if (scriptCode != null) {
         length += 1;
       }
       // Update the base string to reflect assumed scriptCodes.
       originalString = languageCode;
-      if (scriptCode != null)
+      if (scriptCode != null) {
         originalString += '_$scriptCode';
-      if (countryCode != null)
+      }
+      if (countryCode != null) {
         originalString += '_$countryCode';
+      }
     }
 
     return LocaleInfo(
@@ -149,10 +132,6 @@ void loadMatchingArbsIntoBundleMaps({
   required Map<LocaleInfo, Map<String, String>> localeToResources,
   required Map<LocaleInfo, Map<String, dynamic>> localeToResourceAttributes,
 }) {
-  assert(directory != null);
-  assert(filenamePattern != null);
-  assert(localeToResources != null);
-  assert(localeToResourceAttributes != null);
 
   /// Set that holds the locales that were assumed from the existing locales.
   ///
@@ -175,10 +154,11 @@ void loadMatchingArbsIntoBundleMaps({
         final Map<String, dynamic> bundle = json.decode(file.readAsStringSync()) as Map<String, dynamic>;
         for (final String key in bundle.keys) {
           // The ARB file resource "attributes" for foo are called @foo.
-          if (key.startsWith('@'))
+          if (key.startsWith('@')) {
             attributes[key.substring(1)] = bundle[key];
-          else
+          } else {
             resources[key] = bundle[key] as String;
+          }
         }
       }
       // Only pre-assume scriptCode if there is a country or script code to assume off of.
@@ -211,7 +191,6 @@ void loadMatchingArbsIntoBundleMaps({
 }
 
 void exitWithError(String errorMessage) {
-  assert(errorMessage != null);
   stderr.writeln('fatal: $errorMessage');
   exit(1);
 }
@@ -230,8 +209,22 @@ void checkCwdIsRepoRoot(String commandName) {
 GeneratorOptions parseArgs(List<String> rawArgs) {
   final argslib.ArgParser argParser = argslib.ArgParser()
     ..addFlag(
+      'help',
+      abbr: 'h',
+      help: 'Print the usage message for this command',
+    )
+    ..addFlag(
       'overwrite',
       abbr: 'w',
+      help: 'Overwrite existing localizations',
+    )
+    ..addFlag(
+      'remove-undefined',
+      help: 'Remove any localizations that are not defined in the canonical locale.',
+    )
+    ..addFlag(
+      'widgets',
+      help: 'Whether to print the generated classes for the Widgets package only. Ignored when --overwrite is passed.',
     )
     ..addFlag(
       'material',
@@ -242,23 +235,39 @@ GeneratorOptions parseArgs(List<String> rawArgs) {
       help: 'Whether to print the generated classes for the Cupertino package only. Ignored when --overwrite is passed.',
     );
   final argslib.ArgResults args = argParser.parse(rawArgs);
+  if (args.wasParsed('help') && args['help'] == true) {
+    stderr.writeln(argParser.usage);
+    exit(0);
+  }
   final bool writeToFile = args['overwrite'] as bool;
+  final bool removeUndefined = args['remove-undefined'] as bool;
+  final bool widgetsOnly = args['widgets'] as bool;
   final bool materialOnly = args['material'] as bool;
   final bool cupertinoOnly = args['cupertino'] as bool;
 
-  return GeneratorOptions(writeToFile: writeToFile, materialOnly: materialOnly, cupertinoOnly: cupertinoOnly);
+  return GeneratorOptions(
+    writeToFile: writeToFile,
+    materialOnly: materialOnly,
+    cupertinoOnly: cupertinoOnly,
+    widgetsOnly: widgetsOnly,
+    removeUndefined: removeUndefined,
+  );
 }
 
 class GeneratorOptions {
   GeneratorOptions({
     required this.writeToFile,
+    required this.removeUndefined,
     required this.materialOnly,
     required this.cupertinoOnly,
+    required this.widgetsOnly,
   });
 
   final bool writeToFile;
+  final bool removeUndefined;
   final bool materialOnly;
   final bool cupertinoOnly;
+  final bool widgetsOnly;
 }
 
 // See also //master/tools/gen_locale.dart in the engine repo.
@@ -266,15 +275,17 @@ Map<String, List<String>> _parseSection(String section) {
   final Map<String, List<String>> result = <String, List<String>>{};
   late List<String> lastHeading;
   for (final String line in section.split('\n')) {
-    if (line == '')
+    if (line == '') {
       continue;
+    }
     if (line.startsWith('  ')) {
       lastHeading[lastHeading.length - 1] = '${lastHeading.last}${line.substring(1)}';
       continue;
     }
     final int colon = line.indexOf(':');
-    if (colon <= 0)
+    if (colon <= 0) {
       throw 'not sure how to deal with "$line"';
+    }
     final String name = line.substring(0, colon);
     final String value = line.substring(colon + 2);
     lastHeading = result.putIfAbsent(name, () => <String>[]);
@@ -302,24 +313,25 @@ void precacheLanguageAndRegionTags() {
       assert(section.containsKey('Subtag') && section.containsKey('Description'), section.toString());
       final String subtag = section['Subtag']!.single;
       String description = section['Description']!.join(' ');
-      if (description.startsWith('United '))
+      if (description.startsWith('United ')) {
         description = 'the $description';
-      if (description.contains(kParentheticalPrefix))
+      }
+      if (description.contains(kParentheticalPrefix)) {
         description = description.substring(0, description.indexOf(kParentheticalPrefix));
-      if (description.contains(kProvincePrefix))
+      }
+      if (description.contains(kProvincePrefix)) {
         description = description.substring(0, description.indexOf(kProvincePrefix));
-      if (description.endsWith(' Republic'))
+      }
+      if (description.endsWith(' Republic')) {
         description = 'the $description';
+      }
       switch (type) {
         case 'language':
           _languages[subtag] = description;
-          break;
         case 'region':
           _regions[subtag] = description;
-          break;
         case 'script':
           _scripts[subtag] = description;
-          break;
       }
     }
   }
@@ -342,10 +354,12 @@ String describeLocale(String tag) {
     script = _scripts[subtags[1]];
     assert(region != null && script != null);
   }
-  if (region != null)
+  if (region != null) {
     output += ', as used in $region';
-  if (script != null)
+  }
+  if (script != null) {
     output += ', using the $script script';
+  }
   return output;
 }
 
@@ -364,7 +378,7 @@ class $classNamePrefix$camelCaseName extends $superClass {''';
 
 /// Return the input string as a Dart-parseable string.
 ///
-/// ```
+/// ```none
 /// foo => 'foo'
 /// foo "bar" => 'foo "bar"'
 /// foo 'bar' => "foo 'bar'"
@@ -376,7 +390,7 @@ class $classNamePrefix$camelCaseName extends $superClass {''';
 /// in JSON files are escaped. For example, the backspace character (\b)
 /// has to be properly escaped by this function so that the generated
 /// Dart code correctly represents this character:
-/// ```
+/// ```none
 /// foo\bar => 'foo\\bar'
 /// foo\nbar => 'foo\\nbar'
 /// foo\\nbar => 'foo\\\\nbar'
@@ -427,9 +441,10 @@ String generateString(String value) {
 /// Only used to generate localization strings for the Kannada locale ('kn') because
 /// some of the localized strings contain characters that can crash Emacs on Linux.
 /// See packages/flutter_localizations/lib/src/l10n/README for more information.
-String generateEncodedString(String locale, String value) {
-  if (locale != 'kn' || value.runes.every((int code) => code <= 0xFF))
+String generateEncodedString(String? locale, String value) {
+  if (locale != 'kn' || value.runes.every((int code) => code <= 0xFF)) {
     return generateString(value);
+  }
 
   final String unicodeEscapes = value.runes.map((int code) => '\\u{${code.toRadixString(16)}}').join();
   return "'$unicodeEscapes'";

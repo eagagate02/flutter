@@ -16,12 +16,11 @@ import 'theme.dart';
 
 class _AccountPictures extends StatelessWidget {
   const _AccountPictures({
-    Key? key,
     this.currentAccountPicture,
     this.otherAccountsPictures,
     this.currentAccountPictureSize,
     this.otherAccountsPicturesSize,
-  }) : super(key: key);
+  });
 
   final Widget? currentAccountPicture;
   final List<Widget>? otherAccountsPictures;
@@ -70,13 +69,12 @@ class _AccountPictures extends StatelessWidget {
 
 class _AccountDetails extends StatefulWidget {
   const _AccountDetails({
-    Key? key,
     required this.accountName,
     required this.accountEmail,
     this.onTap,
     required this.isOpen,
     this.arrowColor,
-  }) : super(key: key);
+  });
 
   final Widget? accountName;
   final Widget? accountEmail;
@@ -89,8 +87,8 @@ class _AccountDetails extends StatefulWidget {
 }
 
 class _AccountDetailsState extends State<_AccountDetails> with SingleTickerProviderStateMixin {
-  late Animation<double> _animation;
-  late AnimationController _controller;
+  late final CurvedAnimation _animation;
+  late final AnimationController _controller;
   @override
   void initState () {
     super.initState();
@@ -112,6 +110,7 @@ class _AccountDetailsState extends State<_AccountDetails> with SingleTickerProvi
   @override
   void dispose() {
     _controller.dispose();
+    _animation.dispose();
     super.dispose();
   }
 
@@ -150,7 +149,7 @@ class _AccountDetailsState extends State<_AccountDetails> with SingleTickerProvi
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 2.0),
               child: DefaultTextStyle(
-                style: theme.primaryTextTheme.bodyText1!,
+                style: theme.primaryTextTheme.bodyLarge!,
                 overflow: TextOverflow.ellipsis,
                 child: widget.accountName!,
               ),
@@ -162,7 +161,7 @@ class _AccountDetailsState extends State<_AccountDetails> with SingleTickerProvi
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 2.0),
               child: DefaultTextStyle(
-                style: theme.primaryTextTheme.bodyText2!,
+                style: theme.primaryTextTheme.bodyMedium!,
                 overflow: TextOverflow.ellipsis,
                 child: widget.accountEmail!,
               ),
@@ -255,36 +254,30 @@ class _AccountDetailsLayout extends MultiChildLayoutDelegate {
   bool shouldRelayout(MultiChildLayoutDelegate oldDelegate) => true;
 
   Offset _offsetForIcon(Size size, Size iconSize) {
-    switch (textDirection) {
-      case TextDirection.ltr:
-        return Offset(size.width - iconSize.width, size.height - iconSize.height);
-      case TextDirection.rtl:
-        return Offset(0.0, size.height - iconSize.height);
-    }
+    return switch (textDirection) {
+      TextDirection.ltr => Offset(size.width - iconSize.width, size.height - iconSize.height),
+      TextDirection.rtl => Offset(0.0, size.height - iconSize.height),
+    };
   }
 
   Offset _offsetForBottomLine(Size size, Size iconSize, Size bottomLineSize) {
     final double y = size.height - 0.5 * iconSize.height - 0.5 * bottomLineSize.height;
-    switch (textDirection) {
-      case TextDirection.ltr:
-        return Offset(0.0, y);
-      case TextDirection.rtl:
-        return Offset(size.width - bottomLineSize.width, y);
-    }
+    return switch (textDirection) {
+      TextDirection.ltr => Offset(0.0, y),
+      TextDirection.rtl => Offset(size.width - bottomLineSize.width, y),
+    };
   }
 
   Offset _offsetForName(Size size, Size nameSize, Offset bottomLineOffset) {
     final double y = bottomLineOffset.dy - nameSize.height;
-    switch (textDirection) {
-      case TextDirection.ltr:
-        return Offset(0.0, y);
-      case TextDirection.rtl:
-        return Offset(size.width - nameSize.width, y);
-    }
+    return switch (textDirection) {
+      TextDirection.ltr => Offset(0.0, y),
+      TextDirection.rtl => Offset(size.width - nameSize.width, y),
+    };
   }
 }
 
-/// A material design [Drawer] header that identifies the app's user.
+/// A Material Design [Drawer] header that identifies the app's user.
 ///
 /// Requires one of its ancestors to be a [Material] widget.
 ///
@@ -293,11 +286,11 @@ class _AccountDetailsLayout extends MultiChildLayoutDelegate {
 ///  * [DrawerHeader], for a drawer header that doesn't show user accounts.
 ///  * <https://material.io/design/components/navigation-drawer.html#anatomy>
 class UserAccountsDrawerHeader extends StatefulWidget {
-  /// Creates a material design drawer header.
+  /// Creates a Material Design drawer header.
   ///
   /// Requires one of its ancestors to be a [Material] widget.
   const UserAccountsDrawerHeader({
-    Key? key,
+    super.key,
     this.decoration,
     this.margin = const EdgeInsets.only(bottom: 8.0),
     this.currentAccountPicture,
@@ -308,7 +301,7 @@ class UserAccountsDrawerHeader extends StatefulWidget {
     required this.accountEmail,
     this.onDetailsPressed,
     this.arrowColor = Colors.white,
-  }) : super(key: key);
+  });
 
   /// The header's background. If decoration is null then a [BoxDecoration]
   /// with its background color set to the current theme's primaryColor is used.
@@ -369,9 +362,7 @@ class _UserAccountsDrawerHeaderState extends State<UserAccountsDrawerHeader> {
       container: true,
       label: MaterialLocalizations.of(context).signedInLabel,
       child: DrawerHeader(
-        decoration: widget.decoration ?? BoxDecoration(
-          color: Theme.of(context).primaryColor,
-        ),
+        decoration: widget.decoration ?? BoxDecoration(color: Theme.of(context).colorScheme.primary),
         margin: widget.margin,
         padding: const EdgeInsetsDirectional.only(top: 16.0, start: 16.0),
         child: SafeArea(
